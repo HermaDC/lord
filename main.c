@@ -34,12 +34,8 @@ Track* create_track(int id, Sensor* sensor, Track* next, Track* prev) {
     return new_track;
 }
 
+Switch* create_switch(int id, Sensor* sensor, Track* next, Track* prev, Track* branch){
 
-Switch* create_switch(int id, Sensor* sensor,
-                      Track* next,
-                      Track* prev,
-                      Track* branch)
-{
     Switch* sw = malloc(sizeof(Switch));
 
     if (!sw) {
@@ -83,7 +79,6 @@ Switch* insert_switch(Track* track_prev, Track* track_next, Sensor* sensor, Trac
     return sw;
 }
 
-
 //Returns the head of the n tracks created
 Track* create_straight_line(int num_tracks) {
     if (num_tracks <= 0) return NULL;
@@ -121,7 +116,6 @@ Track* create_straight_line(int num_tracks) {
 
     return head;
 }
-
 
 /* ---------- Lógica ---------- */
 
@@ -234,20 +228,25 @@ int main() {
     Track* line = create_straight_line(5);
 
     // Creamos un branch para el switch
-    Track* branch_track = create_straight_line(3);
+    //Track* branch_track = create_straight_line(3);
 
     // Insertamos switch entre track 2 y 3
-    Switch* sw = insert_switch(line->next, line->next->next, NULL, branch_track);
+    //Switch* sw = insert_switch(line->next, line->next->next, NULL, branch_track);
     
 
     // Probamos cambiar la posición
-    sw->pos = DIVERGING_POS;
+    //sw->pos = DIVERGING_POS;
+
+    
+    update_track_status(line->next->next->next);
+
 
     // Imprimimos
     print_tracks_with_switches(line);
     printf("\n");
     // Liberamos todo
     free_tracks(line, NULL);
+    line = NULL;
 
     return 0;
 }

@@ -51,3 +51,5 @@ typedef struct {
 
 
 int count_branch_tracks(Track* branch);
+
+int update_track_status(Track* track);
