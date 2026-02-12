@@ -1,4 +1,3 @@
-#include <stdio.h>
 
 typedef enum Status {
     CLEAR,
@@ -35,30 +34,30 @@ typedef struct Track {
 
     Status status;
 
-    struct Track* next;
-    struct Track* prev;
+    struct Track *next;
+    struct Track *prev;
 
     Direction dir;
 
-    Sensor* sensors;
+    Sensor *sensors;
 
 } Track;
 
 typedef struct {
     Track base;
 
-    Track* branch;
+    Track *branch;
     SwitchPosition pos;
 
 } Switch;
 
 
-int count_branch_tracks(Track* branch);
+int count_branch_tracks(Track *branch);
 
-int update_track_status(Track* track);
+int update_track_status(Track *track);
 
-void update_system_status(Track* head);
+void update_system_status(Track *head);
 
 Track **load_system_layout_from_file(const char *path);
 
-void free_tracks(Track* head, Track* original);
+void free_tracks(Track *head, Track *original);

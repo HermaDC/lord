@@ -1,17 +1,21 @@
-#include "utils.h"
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h>
-#include <time.h>
 #include <string.h>
+#include <time.h>
 
-//TODO: Finish the implementattion of the file loading
+#include "utils.h"
 
+//TODO: Finish the implementation of the file loading
+//TODO: Implement the saving of the system layout to a file
+//TODO: gets_last_track() should use switch branch
+//TODO: update_system_status() should use switch branch
+ 
 #define TOKEN_FOR_FILE " ,;"
 
-Track* create_track(int id, Sensor* sensor, Track* next, Track* prev) {
+Track *create_track(int id, Sensor *sensor, Track *next, Track *prev) {
 
-    Track* new_track = malloc(sizeof(Track));
+    Track *new_track = malloc(sizeof(Track));
 
     if (!new_track) {
         perror("malloc Track");
@@ -32,9 +36,9 @@ Track* create_track(int id, Sensor* sensor, Track* next, Track* prev) {
     return new_track;
 }
 
-Switch* create_switch(int id, Sensor* sensor, Track* next, Track* prev, Track* branch){
+Switch *create_switch(int id, Sensor *sensor, Track *next, Track *prev, Track *branch){
 
-    Switch* sw = malloc(sizeof(Switch));
+    Switch *sw = malloc(sizeof(Switch));
 
     if (!sw) {
         perror("malloc Switch");
@@ -61,32 +65,32 @@ Switch* create_switch(int id, Sensor* sensor, Track* next, Track* prev, Track* b
     return sw;
 }
 
-Switch* insert_switch(Track* track_prev, Track* track_next, Sensor* sensor, Track* branch) {
+Switch *insert_switch(Track *track_prev, Track *track_next, Sensor *sensor, Track *branch) {
     if (!track_prev || !track_next) return NULL;
 
     // Crear el switch
-    Switch* sw = create_switch(0, sensor, track_next, track_prev, branch);
+    Switch *sw = create_switch(0, sensor, track_next, track_prev, branch);
     if (!sw) return NULL;
 
     // Conectar prev -> switch
-    track_prev->next = (Track*)sw;
+    track_prev->next = (Track *)sw;
 
     // Conectar next <- switch
-    track_next->prev = (Track*)sw;
+    track_next->prev = (Track *)sw;
 
     return sw;
 }
 
 //Returns the head of the n tracks created
-Track* create_straight_line(int num_tracks) {
+Track *create_straight_line(int num_tracks) {
     if (num_tracks <= 0) return NULL;
 
-    Track* head = NULL;
-    Track* current = NULL;
+    Track *head = NULL;
+    Track *current = NULL;
 
     for (int i = 1; i <= num_tracks; i++) {
 
-        Sensor* sensor = malloc(sizeof(Sensor));
+        Sensor *sensor = malloc(sizeof(Sensor));
 
         if (!sensor) {
             perror("malloc Sensor");
@@ -96,7 +100,7 @@ Track* create_straight_line(int num_tracks) {
         sensor->hex_direction = 0x00;
         sensor->actual_state = 0;
 
-        Track* new_track =
+        Track *new_track =
             create_track(i, sensor, NULL, current);
 
         if (!new_track) {
@@ -115,10 +119,10 @@ Track* create_straight_line(int num_tracks) {
     return head;
 }
 
-Track* get_last_track(Track* head) {
+Track *get_last_track(Track *head) {
     if (!head) return NULL;
 
-    Track* current = head;
+    Track *current = head;
     while (current->next != NULL) {
         current = current->next;
     }
@@ -126,26 +130,26 @@ Track* get_last_track(Track* head) {
 }
 
 
-bool is_in_chain(Track* head, Track* target) {
+bool is_in_chain(Track *head, Track *target) {
 
-    for (Track* t = head; t != NULL; t = t->next) {
+    for (Track *t = head; t != NULL; t = t->next) {
         if (t == target) return true;
     }
 
     return false;
 }
 
-void free_tracks(Track* head, Track* original) {
+void free_tracks(Track *head, Track *original) {
     if (!original) original = head;
 
-    Track* current = head;
+    Track *current = head;
 
     while (current != NULL) {
 
         /* Si es switch, liberar rama */
         if (current->type == SWITCH_TRACK) {
 
-            Switch* sw = (Switch*)current;
+            Switch *sw = (Switch *)current;
 
             if (sw->branch &&
                 !is_in_chain(original, sw->branch)) {
@@ -154,12 +158,12 @@ void free_tracks(Track* head, Track* original) {
             }
         }
 
-        Track* next = current->next;
+        Track *next = current->next;
 
         free(current->sensors);
 
         if (current->type == SWITCH_TRACK)
-            free((Switch*)current);
+            free((Switch *)current);
         else
             free(current);
 
@@ -167,14 +171,14 @@ void free_tracks(Track* head, Track* original) {
     }
 }
 
-int count_branch_tracks(Track* branch) {
+int count_branch_tracks(Track *branch) {
     int count = 0;
-    Track* current = branch;
+    Track *current = branch;
     while (current != NULL) {
         count++;
         if (current->type == SWITCH_TRACK) {
             // Contar también la rama de un switch dentro de esta rama
-            Switch* sw = (Switch*)current;
+            Switch *sw = (Switch *)current;
             count += count_branch_tracks(sw->branch);
         }
         current = current->next;
@@ -182,7 +186,7 @@ int count_branch_tracks(Track* branch) {
     return count;
 }
 
-int read_sensor_data(Sensor* sensor) {
+int read_sensor_data(Sensor *sensor) {
     if (!sensor) return -1; // Error: sensor nulo
     //TODO: Implement the real data
     sensor->actual_state = rand() % 3; // Simulamos lectura de sensor (0, 1 o 2)
@@ -191,7 +195,7 @@ int read_sensor_data(Sensor* sensor) {
 
 //Updates the track status based on its sensor data
 //Returns -1 on error, 0 if CLEAR or WARNING, 1 if OCCUPIED
-int update_track_status(Track* track){
+int update_track_status(Track *track){
     if (!track || !track->sensors) return -1;
     int sensor_state = read_sensor_data(track->sensors);
     
@@ -226,7 +230,7 @@ int update_track_status(Track* track){
 
 //forces the status without reading the sensor
 //NOT CHECKED, use with care
-int force_update_track_status(Track* track, Status new_status){
+int force_update_track_status(Track *track, Status new_status){
     if (!track) return -1;
     track->status = new_status;
     return 0;
@@ -237,7 +241,7 @@ void update_system_status(Track *head){
     while (current != NULL) {
         update_track_status(current);
         if (current->type == SWITCH_TRACK) {
-            Switch* sw = (Switch*)current;
+            Switch *sw = (Switch *)current;
             if (sw->branch) {
                 update_system_status(sw->branch);
             }
@@ -307,7 +311,7 @@ Track **load_system_layout_from_file(const char *path)
         
         // Only add to head array if we created something on this line
         if (line_head) {
-            Track **tmp = realloc(head, sizeof(Track*) * (count + 2));
+            Track **tmp = realloc(head, sizeof(Track *) * (count + 2));
             if (!tmp) {
                 free_tracks(line_head, NULL);
                 goto error;

@@ -1,6 +1,7 @@
-#include <stdlib.h>
-#include <stdio.h>
 #include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+
 #include "utils.h"
 
 #define RED    "\x1b[31m"
@@ -11,122 +12,17 @@
 
 /* ---------- Creación ---------- */
 
-Track* create_track(int id, Sensor* sensor, Track* next, Track* prev) {
-
-    Track* new_track = malloc(sizeof(Track));
-
-    if (!new_track) {
-        perror("malloc Track");
-        return NULL;
-    }
-
-    new_track->type = STRAIGHT;
-    new_track->id = id;
-    new_track->status = CLEAR;
-
-    new_track->next = next;
-    new_track->prev = prev;
-
-    new_track->dir = NEXT;
-
-    new_track->sensors = sensor;
-
-    return new_track;
-}
-
-Switch* create_switch(int id, Sensor* sensor, Track* next, Track* prev, Track* branch){
-
-    Switch* sw = malloc(sizeof(Switch));
-
-    if (!sw) {
-        perror("malloc Switch");
-        return NULL;
-    }
-
-    /* Base */
-    sw->base.type = SWITCH_TRACK;
-    sw->base.id = id;
-
-    sw->base.status = CLEAR;
-
-    sw->base.next = next;
-    sw->base.prev = prev;
-
-    sw->base.dir = NEXT;
-
-    sw->base.sensors = sensor;
-
-    /* Switch */
-    sw->branch = branch;
-    sw->pos = STRAIGHT_POS;
-
-    return sw;
-}
-
-Switch* insert_switch(Track* track_prev, Track* track_next, Sensor* sensor, Track* branch) {
-    if (!track_prev || !track_next) return NULL;
-
-    // Crear el switch
-    Switch* sw = create_switch(0, sensor, track_next, track_prev, branch);
-    if (!sw) return NULL;
-
-    // Conectar prev -> switch
-    track_prev->next = (Track*)sw;
-
-    // Conectar next <- switch
-    track_next->prev = (Track*)sw;
-
-    return sw;
-}
-
-//Returns the head of the n tracks created
-Track* create_straight_line(int num_tracks) {
-    if (num_tracks <= 0) return NULL;
-
-    Track* head = NULL;
-    Track* current = NULL;
-
-    for (int i = 1; i <= num_tracks; i++) {
-
-        Sensor* sensor = malloc(sizeof(Sensor));
-
-        if (!sensor) {
-            perror("malloc Sensor");
-            return NULL;
-        }
-
-        sensor->hex_direction = 0x00;
-        sensor->actual_state = 0;
-
-        Track* new_track =
-            create_track(i, sensor, NULL, current);
-
-        if (!new_track) {
-            free(sensor);
-            return NULL;
-        }
-
-        if (current)
-            current->next = new_track;
-        else
-            head = new_track;
-
-        current = new_track;
-    }
-
-    return head;
-}
 
 /* ---------- Lógica ---------- */
 
-Track* get_next_track(Track* track) {
+Track *get_next_track(Track *track) {
 
     if (!track) return NULL;
 
     /* Si es switch, mirar posición */
     if (track->type == SWITCH_TRACK) {
 
-        Switch* sw = (Switch*)track;
+        Switch *sw = (Switch *)track;
 
         if (sw->pos == DIVERGING_POS && sw->branch)
             return sw->branch;
@@ -138,13 +34,13 @@ Track* get_next_track(Track* track) {
 
 /* ---------- Print ---------- */
 
-void print_tracks_with_switches(Track* head) {
-    Track* current = head;
+void print_tracks_with_switches(Track *head) {
+    Track *current = head;
 
     while (current != NULL) {
 
         if (current->type == SWITCH_TRACK) {
-            Switch* sw = (Switch*)current;
+            Switch *sw = (Switch *)current;
 
             // Contar tracks en la rama
             int branch_count = count_branch_tracks(sw->branch);
@@ -178,75 +74,37 @@ void print_tracks_with_switches(Track* head) {
 
 /* ---------- Liberación ---------- */
 
-bool is_in_chain(Track* head, Track* target) {
-
-    for (Track* t = head; t != NULL; t = t->next) {
-        if (t == target) return true;
-    }
-
-    return false;
-}
-
-
-void free_tracks(Track* head, Track* original) {
-    if (!original) original = head;
-
-    Track* current = head;
-
-    while (current != NULL) {
-
-        /* Si es switch, liberar rama */
-        if (current->type == SWITCH_TRACK) {
-
-            Switch* sw = (Switch*)current;
-
-            if (sw->branch &&
-                !is_in_chain(original, sw->branch)) {
-
-                free_tracks(sw->branch, original);
-            }
-        }
-
-        Track* next = current->next;
-
-        free(current->sensors);
-
-        if (current->type == SWITCH_TRACK)
-            free((Switch*)current);
-        else
-            free(current);
-
-        current = next;
-    }
-}
 
 
 /* ---------- MAIN ---------- */
 
 int main() {
-// Creamos una línea recta de 5 tracks
-    Track* line = create_straight_line(5);
-
-    // Creamos un branch para el switch
-    //Track* branch_track = create_straight_line(3);
-
-    // Insertamos switch entre track 2 y 3
-    //Switch* sw = insert_switch(line->next, line->next->next, NULL, branch_track);
+    // Initialize random seed once at program start
+    srand(1234); //For testing it sould return
+                 //0 2 0 0 1 0 1 2 2 1    
     
+    Track *head = create_straight_line(5);
+    if (!head){ 
+        fprintf(stderr, "Error creating straight line\n"); 
+        return EXIT_FAILURE; 
+    } 
+    // Create a switch with a branch of 3 tracks 
+    Track *branch = create_straight_line(3); 
+    if (!branch) { 
+        fprintf(stderr, "Error creating branch\n"); 
+        free_tracks(head, NULL); return EXIT_FAILURE; } 
+    Switch *sw = insert_switch(head, head->next->next, NULL, branch); 
+    if (!sw) { 
+        fprintf(stderr, "Error inserting switch\n"); 
+        free_tracks(head, NULL); 
+        free_tracks(branch, NULL); 
+        return EXIT_FAILURE; } 
 
-    // Probamos cambiar la posición
-    //sw->pos = DIVERGING_POS;
-
+    printf(get_last_track)
+        // Print the system layout 
+        printf("System Layout:\n"); 
+        print_tracks_with_switches(head); 
+        printf("\n");
     
-    update_track_status(line->next->next->next);
-
-
-    // Imprimimos
-    print_tracks_with_switches(line);
-    printf("\n");
-    // Liberamos todo
-    free_tracks(line, NULL);
-    line = NULL;
-
     return 0;
 }
