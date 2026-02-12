@@ -1,4 +1,4 @@
-
+#include <stdio.h>
 
 typedef enum Status {
     CLEAR,
@@ -14,6 +14,9 @@ typedef enum direction{
 typedef struct Sensor {
     int hex_direction;
     int actual_state;
+    //TODO think of adding a recent train or similar to check those first 
+    //                      To be quicker that searching in all of the tracks 
+    //                      Then add the actual with train and erasing the previous one
 } Sensor;
 
 typedef enum TrackType {
@@ -53,3 +56,9 @@ typedef struct {
 int count_branch_tracks(Track* branch);
 
 int update_track_status(Track* track);
+
+void update_system_status(Track* head);
+
+Track **load_system_layout_from_file(const char *path);
+
+void free_tracks(Track* head, Track* original);
