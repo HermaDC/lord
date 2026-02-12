@@ -40,7 +40,7 @@ Run the release or debug binary:
 ./gestion_trenes_debug          # debug
 ```
 
-Note: Use `make run-release` or `make run-debug` to build and run in one step.
+> Note: Use `make run-release` or `make run-debug` to build and run in one step.
 
 ---
 
@@ -49,19 +49,26 @@ Note: Use `make run-release` or `make run-debug` to build and run in one step.
 Minimal example showing how to create a line and update a track state:
 
 ```c
-Track* line = create_straight_line(5);
+Track *line = create_straight_line(5);
 update_track_status(line->next->next->next); // update track 4 if exists
+// Could also use update_system_status(line) to update all the tracks in the system
 print_tracks_with_switches(line);
 free_tracks(line, NULL);
 ```
 
+Another example of how to load the layout from a file:
+
+```c
+Track **heads = load_layout_from_file("./layout"); //returns a array of all the heads in the file
+for(int i; heads[i]; i++){
+    print_with_switches(heads[i]);
+    free_tracks(heads[i]); //free the track with head[i]
+}
+free(heads); //free the array of heads
+
+```
 ---
 
-## Documentation 
-
-The API reference is in `docs/API_en.md` (English). For more details on structures, functions, and examples, consult that file.
-
----
 
 ## Contributing 
 
