@@ -267,73 +267,75 @@ void update_system_status(Track *head){
     }
 }
 
-//Given a FILE* it returns a NULL tareminated array of Track* heads, one for each line in the file
-// NULL if there was an error
+//Given a valid file path it returns an array of count pointers to the head of each line of tracks
+// created from the file, and sets count to the number of lines created.
 //Example `10 SW(10) 10` would create a straight line of 10 tracks,
 //then a switch with a branch of 10 tracks, and then another straight line of 10 tracks
-Track **load_system_layout_from_file(const char *path)
+Track **load_system_layout_from_file(const char *path, size_t *count)
 {
-    if (!path) return NULL;
+    if (!path || !count) return NULL;
+
+    *count = 0;
 
     FILE *file = fopen(path, "r");
     if (!file) return NULL;
 
     Track **head = NULL;
-    size_t count = 0;
 
     char *line = NULL;
     size_t len = 0;
 
     while (getline(&line, &len, file) != -1)
     {
-        // Remove newline character
+        // Remove newline
         size_t line_len = strlen(line);
         if (line_len > 0 && line[line_len - 1] == '\n')
             line[line_len - 1] = '\0';
-        
+
         char *token = strtok(line, TOKEN_FOR_FILE);
         Track *line_head = NULL;
         Track *last_track = NULL;
-        
-        // Process all tokens in this line and concatenate them
-        while (token){     
+
+        while (token)
+        {
             char *end;
             long num = strtol(token, &end, 10);
+
             if (*end != '\0' || num <= 0) {
                 token = strtok(NULL, TOKEN_FOR_FILE);
                 continue;
             }
-            
+
             Track *new_track = create_straight_line((int)num);
             if (!new_track) goto error;
-            
-            // Link to previous track if exists
+
             if (last_track) {
                 last_track->next = new_track;
                 new_track->prev = last_track;
             } else {
-                // First track of this line becomes the head
                 line_head = new_track;
             }
-            
-            // Move last_track pointer to the end of new chain
+
             last_track = get_last_track(new_track);
+
+            // TODO: switches / branches
             
-            //TODO: Implement the parsing of switches and branches
 
             token = strtok(NULL, TOKEN_FOR_FILE);
         }
-        
-        // Only add to head array if we created something on this line
-        if (line_head) {
-            Track **tmp = realloc(head, sizeof(Track *) * (count + 2));
+
+        // Añadir solo si hay algo en la línea
+        if (line_head)
+        {
+            Track **tmp = realloc(head, sizeof(Track *) * (*count + 1));
             if (!tmp) {
                 free_tracks(line_head, NULL);
                 goto error;
             }
+
             head = tmp;
-            head[count++] = line_head;
-            head[count] = NULL;
+            head[*count] = line_head;
+            (*count)++;
         }
     }
 
@@ -345,12 +347,13 @@ Track **load_system_layout_from_file(const char *path)
 error:
     if (line) free(line);
     if (file) fclose(file);
-    
+
     if (head) {
-        for (size_t i = 0; head[i]; i++)
+        for (size_t i = 0; i < *count; i++)
             free_tracks(head[i], NULL);
         free(head);
     }
 
+    *count = 0;
     return NULL;
 }

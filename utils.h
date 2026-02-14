@@ -63,7 +63,7 @@ int force_update_track_status(Track *track, Status new_status);
 
 void update_system_status(Track *head);
 
-Track **load_system_layout_from_file(const char *path);
+Track **load_system_layout_from_file(const char *path, size_t *count);
 
 
 void free_tracks(Track *head, Track *original);
