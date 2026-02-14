@@ -8,7 +8,7 @@
 
 //TODO: Finish the implementation of the file loading
 //TODO: Implement the saving of the system layout to a file
-//TODO: gets_last_track() should use switch branch
+//TODO: get_last_track() should use switch branch
 //TODO: update_system_status() should use switch branch
  
 #define TOKEN_FOR_FILE " ,;"
@@ -129,7 +129,6 @@ Track *get_last_track(Track *head) {
     return current;
 }
 
-
 bool is_in_chain(Track *head, Track *target) {
 
     for (Track *t = head; t != NULL; t = t->next) {
@@ -199,32 +198,48 @@ int update_track_status(Track *track){
     if (!track || !track->sensors) return -1;
     int sensor_state = read_sensor_data(track->sensors);
     
-    if (sensor_state < 0) { // Error al leer el sensor
-        track->status = OCCUPIED; //If the sensor fails, consider the track occupied to avoid colisions
-        if (track->prev)
-            track->prev->status = WARNING; //The previous track should be in WARNING state
+    
+    /* Determine the logical "previous" track according to travel direction.
+       If direction is NEXT, the previous track is `prev`.
+       If direction is PREV, the previous track is `next` (opposite links).
+    */
+    Track *prev_in_dir = (track->dir == NEXT) ? track->prev : track->next;
+
+    if (sensor_state < 0) { // Error in the sensor
+        // If the sensor fails, consider the track occupied to avoid collisions
+        track->status = OCCUPIED; 
+
+        if (prev_in_dir && prev_in_dir->status != OCCUPIED)
+            // The previous track in travel direction should be WARNING
+            prev_in_dir->status = WARNING; 
+
         return -1;
-    } 
+    }
 
     switch (sensor_state){
         case 0:
             track->status = CLEAR;
             return 0;
-            break;
         case 1:
             track->status = OCCUPIED;
-            if (track->prev && track->prev->status != OCCUPIED)
-                track->prev->status = WARNING; //The previous track should be in WARNING state
+            if (prev_in_dir && prev_in_dir->status != OCCUPIED)
+                // The previous track in travel direction should be WARNING
+                prev_in_dir->status = WARNING; 
+
             return 1;
-            break;
+
         case 2:
             track->status = WARNING;
             return 0;
-            break;
+
         default:
-            track->status = OCCUPIED; //If the sensor fails, consider the track occupied to avoid colisions
-            return -1; // Estado desconocido
-            break;
+            track->status = OCCUPIED; 
+            // If the sensor fails, consider the track occupied to avoid collisions
+            
+            if (prev_in_dir && prev_in_dir->status != OCCUPIED) 
+                // Check te previous track to not be in OCCUPIED to avoid overwriting a real OCCUPIED with a WARNING
+                prev_in_dir->status = WARNING;
+            return -1; // Unknown state
     }
 }
 
