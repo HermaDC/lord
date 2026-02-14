@@ -51,13 +51,19 @@ typedef struct {
 
 } Switch;
 
+Track *create_straight_line(int num_tracks);
+
+Switch *create_switch(int id, Sensor *sensor, Track *next, Track *prev, Track *branch);
 
 int count_branch_tracks(Track *branch);
 
 int update_track_status(Track *track);
 
+int force_update_track_status(Track *track, Status new_status);
+
 void update_system_status(Track *head);
 
 Track **load_system_layout_from_file(const char *path);
+
 
 void free_tracks(Track *head, Track *original);
