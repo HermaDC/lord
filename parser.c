@@ -4,7 +4,7 @@
 #include <string.h>
 #include <ctype.h>
 
-#include "utils.h"
+#include "parser.h"
 
 #define RED "\x1b[1;91m"
 #define RESET "\x1b[0m"
@@ -146,19 +146,19 @@ void print_tokens(Token *tokens_arr, size_t count){
     }
 }
 
-int check_syntax(Token *tokens_arr, char *original_str, size_t count, TokenizeError *exit_code){ //TODO add the exit_code or error code
+int check_syntax(Token *tokens_arr, char *original_str, size_t count, TokenizeError *error_code){
     int balance = 0;
     if(tokens_arr[0].type != NUMBER){
         fprintf(stderr, RED "Syntax Error:" RESET " The config file must begin with a number\n"
             "Column: %zu\n", tokens_arr[0].column );
-        *exit_code = TOKENIZE_MISSING_NUM;
+        *error_code = TOKENIZE_MISSING_NUM;
         print_error_at(original_str, tokens_arr[0].column);
         return -1;
     }
     if(tokens_arr[count-1].type != NUMBER){
         fprintf(stderr, RED "Syntax Error:" RESET " The config file must end with a number\n"
             "Column: %zu\n", tokens_arr[count-1].column );
-        *exit_code = TOKENIZE_MISSING_NUM;
+        *error_code = TOKENIZE_MISSING_NUM;
         print_error_at(original_str, tokens_arr[count-1].column);
         return -1;
     }
@@ -167,7 +167,7 @@ int check_syntax(Token *tokens_arr, char *original_str, size_t count, TokenizeEr
             if(i + 1 >= count || tokens_arr[i + 1].type != OPEN){
                 fprintf(stderr, RED "Syntax Error:" RESET " SW must be followed by an opening parenthesis\n"
                     "Column: %zu\n", tokens_arr[i].column );
-                *exit_code = TOKENIZE_UNMATCHED_PARENTHESES;
+                *error_code = TOKENIZE_UNMATCHED_PARENTHESES;
                 print_error_at(original_str, tokens_arr[i].column);
                 return -1;
             }
@@ -179,14 +179,14 @@ int check_syntax(Token *tokens_arr, char *original_str, size_t count, TokenizeEr
             if(balance < 0){
                 fprintf(stderr, RED "Syntax Error: " RESET "Unmatched closing parenthesis\n"
                     "Column: %zu\n", tokens_arr[i].column);
-                *exit_code = TOKENIZE_UNMATCHED_PARENTHESES;
+                *error_code = TOKENIZE_UNMATCHED_PARENTHESES;
                 print_error_at(original_str, tokens_arr[i].column);
                 return -1;
             } //the previous of the close parenthesis should be a number
             if(tokens_arr[i-1].type != NUMBER){
                 fprintf(stderr, RED "Syntax Error: " RESET "Missing number before closing parenthesis\n"
                     "Column: %zu\n", tokens_arr[i].column);
-                *exit_code = TOKENIZE_MISSING_NUM;
+                *error_code = TOKENIZE_MISSING_NUM;
                 print_error_at(original_str, tokens_arr[i].column-1);
                 return -1;
             }
@@ -194,11 +194,11 @@ int check_syntax(Token *tokens_arr, char *original_str, size_t count, TokenizeEr
     }
     if(balance > 0){
         fprintf(stderr, RED "Syntax Error: " RESET "Unmatched opening parenthesis\n");
-        *exit_code = TOKENIZE_UNMATCHED_PARENTHESES;
+        *error_code = TOKENIZE_UNMATCHED_PARENTHESES;
         print_error_at(original_str, original_str ? strlen(original_str) : 0);
         return -1;
     }
-    *exit_code = TOKENIZE_OK;
+    *error_code = TOKENIZE_OK;
     printf("Syntax is correct\n");
     return 0;
 }
