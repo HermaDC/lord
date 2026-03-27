@@ -30,11 +30,21 @@ This document describes the public structures and functions of the `gestion-tren
 - `typedef struct { Track base; Track *branch; SwitchPosition pos; } Switch;`
   - Extends `Track` with a `branch` and a `pos`.
 
+- `typedef struct { int top; Switch *data[MAX_STACK_SIZE];} SwitchStack;`
+  - Creates a stack of Switch pointers
+
+- `typedef enum { TOKENIZE_OK, TOKENIZE_MISSING_NUM, TOKENIZE_UNKNOWN_CHAR,    TOKENIZE_UNMATCHED_PARENTHESES, TOKENIZE_OOM, TOKENIZE_EMPTY_STR } TokenizeError;`
+  - Stores the error of the tokenize, used for debugging and printing errors.
+
+- `typedef enum { NUMBER, OPEN, CLOSE, SW } TokenType;`
+  - Represents the type of token.
+
+- `typedef struct {int value; TokenType type; size_t column;} Token;`
+  - The token structure, holds the type value and the column of the string where the token cames from.
+
 ---
 
 ## Public Functions
-
-All functions are declared in `utils.h`.
 
 ### Track \*create_track(int id, Sensor *sensor, Track *next, Track *prev)
 - Creates and returns a new `Track` (type `STRAIGHT`).
@@ -58,7 +68,7 @@ All functions are declared in `utils.h`.
 ### Switch *insert_switch(Track *track_prev, Track *track_next, Sensor *sensor, Track *branch)
 - Inserts a `Switch` between `track_prev` and `track_next`.
 - Parameters:
-  - `track_prev`, `track_next`: must be non-NULL and consecutive in the chain.
+  - `track_prev`, `track_next`: must be non-NULL and **consecutive** in the chain.
   - `sensor`: sensor of the switch (may be `NULL` if unused).
   - `branch`: points to the switch branch (may be `NULL`).
 - Return: pointer to the inserted `Switch` or `NULL` if `track_prev`/`track_next` are `NULL` or on memory failure.
@@ -91,9 +101,9 @@ All functions are declared in `utils.h`.
 - Reads the associated sensor and updates `track->status` accordingly.
 - Behavior:
   - If `track == NULL` or `track->sensors == NULL` => returns `-1`.
-  - `sensor_state < 0`: marks `track` as `OCCUPIED`, marks `track->prev` as `WARNING` if present, returns `-1`.
+  - `sensor_state < 0`: marks `track` as `OCCUPIED`, marks `track->prev` or `track->next` (depending on `track->dir`) as `WARNING` if present, returns `-1`.
   - `0` => `CLEAR`, returns `0`.
-  - `1` => `OCCUPIED`, marks `track->prev` as `WARNING` (if present and not `OCCUPIED`), returns `1`.
+  - `1` => `OCCUPIED`, marks `track->prev` or `track->next` (depending on `track->dir`) as `WARNING` (if present and not `OCCUPIED`), returns `1`.
   - `2` => `WARNING`, returns `0`.
 - Return: `-1` on error, `0` if CLEAR/WARNING, `1` if OCCUPIED.
 - Safety recommendation: always verify `track` and `track->sensors` are not `NULL` before calling.
@@ -129,9 +139,13 @@ All functions are declared in `utils.h`.
 
 ---
 
-### Track **load_system_layout_from_file(const char *path)
-- loads the system layout from the file in `path`
-- free the pointer returned. The tracks should be freed with their function `free_tracks`
+### Track **load_system_layout_from_file(const char *path, size_t *count)
+- Loads the system layout from the file in `path`
+- Parameters:
+  - `path`: file path to read (must be a valid file).
+  - `count`: pointer to `size_t` where the number of lines loaded will be stored.
+- Return: pointer to an array of `Track*` heads (one for each line in the file) or `NULL` on error (invalid path, file format, memory failure).
+- Free the pointer returned. The tracks should be freed with their function [`free_tracks()`](#void-free_trackstrack-head-track-original)
 
 
 ### void free_tracks(Track *head, Track *original)
@@ -176,9 +190,10 @@ print_tracks_with_switches(line);
 free_tracks(line, NULL);
 
 // Load system from file
-Track **system = load_system_layout_from_file("./system_state.txt");
+size_t count = 0;
+Track **system = load_system_layout_from_file("./system_state.txt", &count);
 if (system) {
-    for (int i = 0; system[i]; i++) {
+    for (int i = 0; i < count; i++) {
         update_system_status(system[i]);
         print_tracks_with_switches(system[i]);
         printf("\n");
