@@ -1,2 +1,9 @@
+# debug and test files
 *debug*
 prueba*
+
+# temp folder for build
+build/*
+
+# bak-up and config files
+*.bak
