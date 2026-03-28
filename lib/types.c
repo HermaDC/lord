@@ -7,6 +7,7 @@
 const char *error_to_string(ErrorCode err) {
     switch(err) {
         case ERR_OK: return "OK";
+        case ERR_GENERAL: return "General error";
         case ERR_INVALID_ARG: return "Invalid argument";
         case ERR_NULL_PTR: return "Null pointer";
         case ERR_NO_MEMORY: return "Out of memory";
@@ -19,7 +20,24 @@ const char *error_to_string(ErrorCode err) {
     }
 }
 
-void initialize(SwitchStack *stack) {
+ErrorCode init_system(System *sys, size_t initial_capacity){
+    if (!sys) return ERR_NULL_PTR;
+    if (initial_capacity == 0) return ERR_INVALID_ARG;
+
+    sys->count = 0;
+    sys->buffer = initial_capacity;
+    sys->array = malloc(initial_capacity * sizeof(Track));
+
+    if (!sys->array) {
+        sys->buffer = 0;
+        return ERR_NO_MEMORY;
+    }
+
+    return ERR_OK;
+
+}
+
+void initialize_stack(SwitchStack *stack) {
     stack->top = -1;  
 }
 
@@ -34,7 +52,7 @@ bool isFull(SwitchStack *stack) {
 }
 
 // Function to push an element onto the stack
-void push(SwitchStack *stack, Switch *value) {
+void push(SwitchStack *stack, void *value) {
     if (isFull(stack)) {
         printf("Stack Overflow\n");
         return;
@@ -43,19 +61,19 @@ void push(SwitchStack *stack, Switch *value) {
     printf("Pushed %p onto the stack\n", value);
 }
 
-Switch *pop(SwitchStack *stack) {
+void *pop(SwitchStack *stack) {
     if (isEmpty(stack)) {
         printf("Stack Underflow\n");
         return NULL;
     }
 
-    Switch *popped = stack->data[stack->top];
+    void *popped = stack->data[stack->top];
     stack->top--;
     printf("Popped %p from the stack\n", popped);
     return popped;
 }
 
-Switch *peek(SwitchStack *stack) {
+void *peek(SwitchStack *stack) {
     if (isEmpty(stack)) {
         printf("Stack is empty\n");
         return NULL;

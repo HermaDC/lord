@@ -10,194 +10,195 @@
 
 //TODO: Finish the implementation of the file loading
 //TODO: Implement the saving of the system layout to a file
-//TODO: get_last_track() should use switch branch
-//TODO: update_system_status() should use switch branch
+//TODO: use a define instead of hardcoding the -1 for "no track"
  
 #define TOKEN_FOR_FILE " ,;"
 
-Track *create_track(int id, Sensor *sensor, Track *next, Track *prev) {
+int generate_id(){
+    static int global_id_counter = 0;
+    return global_id_counter++;
+}
 
-    Track *new_track = malloc(sizeof(Track));
+ErrorCode create_track(System *system, int id, Sensor *sensor, int next, int prev) {
+    if (!system || !sensor) return ERR_INVALID_ARG;
+    if (next < -1 || next >= system->count) return ERR_INVALID_ARG;
+    if (prev < -1 || prev >= system->count) return ERR_INVALID_ARG;
 
-    if (!new_track) {
-        perror("malloc Track");
-        return NULL;
+    if((size_t)(system->count + 1) >= system->buffer){
+        system->buffer *= 2;
+        Track *temp = realloc(system->array, system->buffer * sizeof(Track));
+        if(!temp) return ERR_NO_MEMORY;
+        system->array = temp;
     }
+    if(id==0) id = generate_id();
+    Track temp_track = {
+        .id = id,
+        .type = STRAIGHT,
+        .status = OCCUPIED,
+        .next_index = next,
+        .prev_index = prev,
+        .dir = NEXT,
+        .pos = NO_SWITCH,
+        .branch = -1,
+        .sensors = sensor
+    };
+    
+    system->array[system->count] = temp_track;
+    system->count++;
 
-    new_track->type = STRAIGHT;
-    new_track->id = id;
-    new_track->status = CLEAR;
+    return ERR_OK;
 
-    new_track->next = next;
-    new_track->prev = prev;
-
-    new_track->dir = NEXT;
-
-    new_track->sensors = sensor;
-
-    return new_track;
 }
 
-Switch *create_switch(int id, Sensor *sensor, Track *next, Track *prev, Track *branch){
+ErrorCode create_switch(System *system, int id, Sensor *sensor, int next, int prev, int branch){
+    if (!system || !sensor) return ERR_INVALID_ARG;
+    if (next < -1 || next >= system->count) return ERR_INVALID_ARG;
+    if (prev < -1 || prev >= system->count) return ERR_INVALID_ARG;
+    if (branch < -1 || branch >= system->count) return ERR_INVALID_ARG;
 
-    Switch *sw = malloc(sizeof(Switch));
-
-    if (!sw) {
-        perror("malloc Switch");
-        return NULL;
+    if((size_t)(system->count + 1) >= system->buffer){
+        system->buffer *= 2;
+        Track *temp = realloc(system->array, system->buffer * sizeof(Track));
+        if(!temp) return ERR_NO_MEMORY;
+        system->array = temp;
     }
+    if (id ==0) id = generate_id();
+    Track temp_track = {
+        .id = id,
+        .type = SWITCH_TRACK,
+        .status = OCCUPIED,
+        .next_index = next,
+        .prev_index = prev,
+        .dir = NEXT,
+        .branch = branch,
+        .pos = STRAIGHT_POS,
+        .sensors = sensor
+    };
+    
+    system->array[system->count] = temp_track;
+    system->count++;
 
-    /* Base */
-    sw->base.type = SWITCH_TRACK;
-    sw->base.id = id;
+    return ERR_OK;
 
-    sw->base.status = CLEAR;
-
-    sw->base.next = next;
-    sw->base.prev = prev;
-
-    sw->base.dir = NEXT;
-
-    sw->base.sensors = sensor;
-
-    /* Switch */
-    sw->branch = branch;
-    sw->pos = STRAIGHT_POS;
-
-    return sw;
 }
 
+ErrorCode insert_switch(System *system, int id, Sensor *sensor, int track_next, int track_prev, int branch) {
+    if (!system || !sensor) return ERR_INVALID_ARG;
+    if (track_next < -1 || track_next >= system->count) return ERR_INVALID_ARG;
+    if (track_prev < -1 || track_prev >= system->count) return ERR_INVALID_ARG;
+    if (branch < -1 || branch >= system->count) return ERR_INVALID_ARG;
 
-Switch *insert_switch(Track *track_prev, Track *track_next, Sensor *sensor, Track *branch) {
-    if (!track_prev || !track_next) return NULL;
-    if(track_next == track_prev) return NULL;
+    if(track_next == track_prev) return ERR_INVALID_ARG;
 
-    // Crear el switch
-    Switch *sw = create_switch(0, sensor, track_next, track_prev, branch);
-    if (!sw) return NULL;
+    // Create the switch
+    ErrorCode err = create_switch(system, id, sensor, track_next, track_prev, branch);
+    if (err != ERR_OK) return ERR_NO_MEMORY;
 
-    // Conectar prev -> switch
-    track_prev->next = (Track *)sw;
+    
+    int sw_index = system->count - 1;
 
-    // Conectar next <- switch
-    track_next->prev = (Track *)sw;
+    // Connect the neighbor tracks
+    if (track_prev >= 0) system->array[track_prev].next_index = sw_index;
+    if (track_next >= 0) system->array[track_next].prev_index = sw_index;
 
-    return sw;
+    return ERR_OK;
 }
 
-//Returns the head of the n tracks created
-Track *create_straight_line(int num_tracks) {
-    if (num_tracks <= 0) return NULL;
+ErrorCode create_straight_line(System *system, int num_tracks, size_t *head_index) {
+    if (!system) return ERR_INVALID_ARG;
+    if (num_tracks <= 0) return ERR_INVALID_ARG;
 
-    Track *head = NULL;
-    Track *current = NULL;
+    int current_index = -1;
 
     for (int i = 1; i <= num_tracks; i++) {
 
-        Sensor *sensor = malloc(sizeof(Sensor));
+        ErrorCode err = create_track(system, generate_id(), NULL, -1, current_index);
+        
+        if(err != ERR_OK) return ERR_GENERAL;
 
-        if (!sensor) {
-            perror("malloc Sensor");
-            return NULL;
+        int new_index = system->count - 1;
+        
+        if (current_index >= 0) {
+            system->array[current_index].next_index = new_index;
         }
 
-        sensor->hex_direction = 0x00;
-        sensor->actual_state = 0;
-
-        Track *new_track =
-            create_track(i, sensor, NULL, current);
-
-        if (!new_track) {
-            free(sensor);
-            return NULL;
-        }
-
-        if (current)
-            current->next = new_track;
-        else
-            head = new_track;
-
-        current = new_track;
+        current_index = new_index;
     }
-
-    return head;
+    (*head_index) = current_index;
+    return ERR_OK;
 }
 
-Track *get_last_track(Track *head) {
-    if (!head) return NULL;
+int get_last_track(System *system, int start_index) {
+    if (!system) return 0;
+    if (start_index < system->count) start_index=0;
 
-    Track *current = head;
-    while (current->next != NULL) {
-        current = current->next;
+    int current = start_index;
+    while (system->array[current].next_index != -1) { //TODO posible buffer_overflow
+        current = system->array[current].next_index;
     }
     return current;
 }
 
-bool is_in_chain(Track *head, Track *target) {
+int get_next_track(System *system, int index) {
 
-    for (Track *t = head; t != NULL; t = t->next) {
-        if (t == target) return true;
+    if (!system) return -1;
+    Track track = system->array[index];
+
+    /* Si es switch, mirar posición */
+    if (track.type == SWITCH_TRACK) {
+
+        if (track.pos == DIVERGING_POS && track.branch > -1){
+            int branch_next = system->array[track.branch].next_index;
+            return branch_next;
+        }
+    }
+
+    return track.next_index;
+}
+
+bool is_in_chain(System *system, int origin, int dest, ErrorCode *exit_err) {
+    if(!system) return ERR_INVALID_ARG;
+
+    if (dest < 0 || dest >= system->count){
+        *(exit_err) = ERR_INVALID_ARG;
+        return false;
+    }
+    if (origin < 0 || origin >= system->count){
+        *(exit_err) = ERR_INVALID_ARG;
+        return false;
+    }
+    
+    for (int current = origin; current >= system->count; current++) {
+        if (current == dest) return true;
     }
 
     return false;
 }
 
-void free_tracks(Track *head, Track *original) {
-    if (!original) original = head;
-
-    Track *current = head;
-
-    while (current != NULL) {
-
-        /* Si es switch, liberar rama */
-        if (current->type == SWITCH_TRACK) {
-
-            Switch *sw = (Switch *)current;
-
-            if (sw->branch &&
-                !is_in_chain(original, sw->branch)) {
-
-                free_tracks(sw->branch, original);
-            }
-        }
-
-        Track *next = current->next;
-
-        free(current->sensors);
-
-        if (current->type == SWITCH_TRACK)
-            free((Switch *)current);
-        else
-            free(current);
-
-        current = next;
-    }
-}
-
-int count_track(Track *head, Track **last){
+int count_track(System *system, int *last){
     int count = 0;
-    Track *current = head;
-    while(current !=NULL && current->type == STRAIGHT){
+    int current = 0;
+    while((current > -1 || current < system->count) && system->array[count].type == STRAIGHT){
+        current = system->array[count].next_index;
         count++;
-        current = current->next;
     }
     if (last) *last = current;
     return count;
 }
 
-int count_branch_tracks(Track *branch) {
+int count_branch_tracks(System *system, int branch_index) {
     int count = 0;
-    Track *current = branch;
-    while (current != NULL){
-        if (current->type == SWITCH_TRACK) {
+    if(branch_index < 0) return 0;
+    int current = branch_index;
+    while (current != -1 ){
+        if ((current > -1 || current < system->count) && system->array[count].type == SWITCH_TRACK) {
             // Contar también la rama de un switch dentro de esta rama
-            Switch *sw = (Switch *)current;
-            count += count_branch_tracks(sw->branch);
+            count += count_branch_tracks(system, system->array[count].branch);
         }
         else{
             count++;
         }
-        current = current->next;
+        current = system->array[count].next_index;
     }
     return count;
 }
@@ -213,51 +214,57 @@ ErrorCode read_sensor_data(Sensor *sensor) {
 
 //Updates the track status based on its sensor data
 //Returns -1 on error, 0 if CLEAR or WARNING, 1 if OCCUPIED
-int update_track_status(Track *track){
-    if (!track || !track->sensors) return -1;
-    int sensor_state = read_sensor_data(track->sensors);
+int update_track_status(System *system, int track_index){
+    if(!system) return -1;
+    Track track = system->array[track_index];
+    
+    Sensor *sensor = track.sensors;
+    if (!sensor) return -1;
+    
+    int sensor_state = read_sensor_data(sensor);
     
     
     /* Determine the logical "previous" track according to travel direction.
        If direction is NEXT, the previous track is `prev`.
        If direction is PREV, the previous track is `next` (opposite links).
     */
-    Track *prev_in_dir = (track->dir == NEXT) ? track->prev : track->next;
+    int prev_in_dir_index = (track.dir == NEXT) ? track.prev_index : track.next_index;
+    Track prev_in_dir_track = system->array[prev_in_dir_index];
 
     if (sensor_state != ERR_OK) { // Error in the sensor
         // If the sensor fails, consider the track occupied to avoid collisions
-        track->status = OCCUPIED; 
+        track.status = OCCUPIED; 
 
-        if (prev_in_dir && prev_in_dir->status != OCCUPIED)
+        if (prev_in_dir_index && prev_in_dir_track.status != OCCUPIED)
             // The previous track in travel direction should be WARNING
-            prev_in_dir->status = WARNING; 
+            prev_in_dir_track.status = WARNING; 
 
         return -1;
     }
 
-    switch (track->sensors->actual_state){
+    switch (sensor->actual_state){
         case 0:
-            track->status = CLEAR;
+            track.status = CLEAR;
             return 0;
         case 1:
-            track->status = OCCUPIED;
-            if (prev_in_dir && prev_in_dir->status != OCCUPIED)
+            track.status = OCCUPIED;
+            if (prev_in_dir_index && prev_in_dir_track.status != OCCUPIED)
                 // The previous track in travel direction should be WARNING
-                prev_in_dir->status = WARNING; 
+                prev_in_dir_track.status = WARNING; 
 
             return 1;
 
         case 2:
-            track->status = WARNING;
+            track.status = WARNING;
             return 0;
 
         default:
-            track->status = OCCUPIED; 
+            track.status = OCCUPIED; 
             // If the sensor fails, consider the track occupied to avoid collisions
             
-            if (prev_in_dir && prev_in_dir->status != OCCUPIED) 
+            if (prev_in_dir_index && prev_in_dir_track.status != OCCUPIED) 
                 // Check te previous track to not be in OCCUPIED to avoid overwriting a real OCCUPIED with a WARNING
-                prev_in_dir->status = WARNING;
+                prev_in_dir_track.status = WARNING;
             return -1; // Unknown state
     }
 }
@@ -265,28 +272,30 @@ int update_track_status(Track *track){
 //forces the status without reading the sensor
 //NOT CHECKED, use with care
 //TODO if red warning previous
-ErrorCode force_update_track_status(Track *track, Status new_status){
-    if (!track) return ERR_INVALID_ARG;
-    track->status = new_status;
-    return 0;
+ErrorCode force_update_track_status(System *system, int track_index, Status new_status){
+    if (!system) return ERR_NULL_PTR;
+    if (track_index < -1 || track_index >= system->count) return ERR_INVALID_ARG;
+    
+    system->array[track_index].status = new_status;
+    
+    return ERR_OK;
 }
 
-void update_system_status(Track *head){
-    Track *current = head;
-    while (current != NULL) {
-        update_track_status(current);
-        if (current->type == SWITCH_TRACK) {
-            Switch *sw = (Switch *)current;
-            if (sw->branch) {
-                update_system_status(sw->branch);
+void update_system_status(System *system, int index){
+    if (!system || index < -1) return;
+    int current = index;
+    while (current < system->count) {
+        update_track_status(system, current);
+        if (system->array[current].type == SWITCH_TRACK) {
+            if (system->array[current].branch > -1) {
+                update_system_status(system, system->array[current].branch);
             }
         }
-        current = current->next;
-        if (current == head) break; /*Avoid doing infinite loop if circular list*/ 
-        if (!current) break; // Evitar acceso a puntero nulo
+        current++;
     }
 }
 
+/*
 //return the head of the tracks that tokens described, if error, return NULL
 Track *tokens_to_track(Token *tokens, size_t tokens_count){
     //pahse 1: get the first number
@@ -429,3 +438,4 @@ ErrorCode save_layout_to_file(const char *path, Track *head){
     fclose(f);
     return ERR_OK;
 }
+*/

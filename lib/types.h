@@ -4,11 +4,12 @@
 #include <stdlib.h>
 #include "config.h"
 
-//
-// 🔴 ERROR CODES
-//
+#define NO_FOLLOWING_TRACK -1 
+
+//Enum for the different errors that can occur during execution
 typedef enum {
     ERR_OK = 0,
+    ERR_GENERAL,
     ERR_INVALID_ARG,
     ERR_NULL_PTR,
     ERR_NO_MEMORY,
@@ -21,12 +22,11 @@ typedef enum {
     ERR_BROKEN_LINK
 } ErrorCode;
 
+//parsing the error value to a string to help debugging
 const char *error_to_string(ErrorCode err);
 
 
-//
-// 🔢 TOKENIZER
-//
+//Determines the type of the token
 typedef enum {
     NUMBER,
     OPEN,
@@ -37,7 +37,7 @@ typedef enum {
 typedef struct {
     int value;
     TokenType type;
-    size_t column;
+    size_t column; //Column were the token appears in the str
 } Token;
 
 typedef enum {
@@ -51,10 +51,6 @@ typedef enum {
 } TokenizeError;
 
 
-
-//
-// 🚦 TRACK SYSTEM
-//
 typedef enum {
     CLEAR,
     OCCUPIED,
@@ -77,50 +73,53 @@ typedef enum {
 } TrackType;
 
 typedef enum {
-    STRAIGHT_POS,
+    NO_SWITCH = -1,
+    STRAIGHT_POS = 0,
     DIVERGING_POS
 } SwitchPosition;
 
 
-//
-// 🔗 TRACK STRUCTURES
-//
+
 typedef struct Track {
     TrackType type;
     int id;
 
     Status status;
 
-    struct Track *next;
-    struct Track *prev;
+    int next_index; // -1 if not following
+    int prev_index; // -1 if not following
 
     Direction dir;
+    
+    SwitchPosition pos;
+    int branch; // -1 if not following
 
     Sensor *sensors;
 
 } Track;
 
-typedef struct {
-    Track base;
-    Track *branch;
-    SwitchPosition pos;
-} Switch;
+//Holds all the info for a line of the system
+typedef struct System {
+    Track *array; // Is the array of track
+    int count; // count of the tracks saved, 0 none, 1 one track...
+    size_t buffer; //size of the reserved buffer
+} System;
 
+//Init correctly the system struct
+ErrorCode init_system(System *sys, size_t initial_capacity);
 
 //
 // 📦 STACK
 //
 typedef struct {
     int top;
-    Switch *data[MAX_STACK_SIZE];
+    void *data[MAX_STACK_SIZE];
 } SwitchStack;
 
 void initialize(SwitchStack *stack);
 
-void push(SwitchStack *stack, Switch *value);
+void push(SwitchStack *stack, void *value);
 
-Switch *pop(SwitchStack *stack);
+void *pop(SwitchStack *stack);
 
 #endif // TYPES_H
-
-
