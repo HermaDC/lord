@@ -7,9 +7,6 @@
 #include "parser.h"
 #include "config.h"
 
-#define RED "\x1b[1;91m"
-#define RESET "\x1b[0m"
-
 #define IS_TOK_DELIMITER(c) (isspace(c) || c == ',' || c == ';')
 
 // 10 SW(10)
