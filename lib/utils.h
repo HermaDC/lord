@@ -12,6 +12,9 @@ ErrorCode insert_switch(System *system, int id, Sensor *sensor, int track_next, 
 //Creates a num_tracks straight line of tracks in system, in index stores the index of the first track of the line
 ErrorCode create_straight_line(System *system, int num_tracks, size_t *index);
 
+//Prints the system tracks with the switches, starting from index
+void print_tracks_with_switches(System *system, int index);
+
 //Return the index of the last track connected counting from start_index
 int get_last_track(System *system, int start_index);
 

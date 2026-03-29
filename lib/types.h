@@ -6,6 +6,11 @@
 
 #define NO_FOLLOWING_TRACK -1 
 
+#define RED    "\x1b[31m"
+#define GREEN  "\x1b[32m"
+#define YELLOW "\x1b[33m"
+#define RESET  "\x1b[0m"
+
 //Enum for the different errors that can occur during execution
 typedef enum {
     ERR_OK = 0,
@@ -24,6 +29,13 @@ typedef enum {
 
 //parsing the error value to a string to help debugging
 const char *error_to_string(ErrorCode err);
+
+typedef enum LogLevel {
+    LOG_ERROR,
+    LOG_WARNING,
+    LOG_INFO,
+    LOG_DEBUG
+} LogLevel;
 
 
 //Determines the type of the token

@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <stdarg.h>
 
 #include "utils.h"
 #include "parser.h"
@@ -111,8 +112,11 @@ ErrorCode create_straight_line(System *system, int num_tracks, size_t *head_inde
     int current_index = -1;
 
     for (int i = 1; i <= num_tracks; i++) {
-
-        ErrorCode err = create_track(system, generate_id(), NULL, -1, current_index);
+        Sensor *sen = malloc(sizeof(Sensor));
+        if (!sen) return ERR_NO_MEMORY;
+        sen->hex_direction = 0; //TODO: set a real direction
+        sen->actual_state = 0; //TODO: set a real state
+        ErrorCode err = create_track(system, generate_id(), sen, -1, current_index);
         
         if(err != ERR_OK) return ERR_GENERAL;
 
@@ -154,6 +158,44 @@ int get_next_track(System *system, int index) {
     }
 
     return track.next_index;
+}
+
+void print_tracks_with_switches(System *system, int index) {
+    if(!system) printf("NULL pointer passed\n");
+    int current = index;
+    while (current > -1 && current < system->count) {
+        Track current_track = system->array[current];
+        
+        if (current_track.type == SWITCH_TRACK) {
+
+            // Contar tracks en la rama
+            int branch_count = count_branch_tracks(system, current_track.branch);
+
+            if (current_track.pos == STRAIGHT_POS)
+                printf("(%d)SW[→](%d) ", current_track.id,branch_count);
+            else
+                printf("(%d)SW[~](%d) ", current_track.id, branch_count);
+
+            // También podemos imprimir la rama recursivamente
+            if (current_track.branch){
+                printf("{");
+                print_tracks_with_switches(system, current_track.branch);
+                printf("} ");
+            }
+        } else {
+            // Track normal
+            printf("(%d)", current_track.id);
+            switch (current_track.status) {
+                case CLEAR:   printf(GREEN "------ " RESET); break;
+                case OCCUPIED:printf(RED "------ " RESET); break;
+                case WARNING: printf(YELLOW "------ " RESET); break;
+            }
+        }
+
+        current = get_next_track(system, current);
+    }
+
+    //printf("\n");
 }
 
 bool is_in_chain(System *system, int origin, int dest, ErrorCode *exit_err) {
@@ -215,56 +257,55 @@ ErrorCode read_sensor_data(Sensor *sensor) {
 //Updates the track status based on its sensor data
 //Returns -1 on error, 0 if CLEAR or WARNING, 1 if OCCUPIED
 int update_track_status(System *system, int track_index){
-    if(!system) return -1;
-    Track track = system->array[track_index];
+    if(!system || track_index < 0 || track_index >= system->count) return -1;
+    Track *track = &system->array[track_index];
     
-    Sensor *sensor = track.sensors;
+    Sensor *sensor = track->sensors;
     if (!sensor) return -1;
     
-    int sensor_state = read_sensor_data(sensor);
-    
+    ErrorCode sensor_state = read_sensor_data(sensor);
     
     /* Determine the logical "previous" track according to travel direction.
        If direction is NEXT, the previous track is `prev`.
        If direction is PREV, the previous track is `next` (opposite links).
     */
-    int prev_in_dir_index = (track.dir == NEXT) ? track.prev_index : track.next_index;
-    Track prev_in_dir_track = system->array[prev_in_dir_index];
+    int prev_in_dir_index = (track->dir == NEXT) ? track->prev_index : track->next_index;
+    Track *prev_in_dir_track = NULL;
+    if (prev_in_dir_index >= 0 && prev_in_dir_index < system->count)
+        prev_in_dir_track = &system->array[prev_in_dir_index];
 
     if (sensor_state != ERR_OK) { // Error in the sensor
         // If the sensor fails, consider the track occupied to avoid collisions
-        track.status = OCCUPIED; 
+        track->status = OCCUPIED;
 
-        if (prev_in_dir_index && prev_in_dir_track.status != OCCUPIED)
+        if (prev_in_dir_track && prev_in_dir_track->status != OCCUPIED)
             // The previous track in travel direction should be WARNING
-            prev_in_dir_track.status = WARNING; 
+            prev_in_dir_track->status = WARNING;
 
         return -1;
     }
 
     switch (sensor->actual_state){
         case 0:
-            track.status = CLEAR;
+            track->status = CLEAR;
             return 0;
         case 1:
-            track.status = OCCUPIED;
-            if (prev_in_dir_index && prev_in_dir_track.status != OCCUPIED)
+            track->status = OCCUPIED;
+            if (prev_in_dir_track && prev_in_dir_track->status != OCCUPIED)
                 // The previous track in travel direction should be WARNING
-                prev_in_dir_track.status = WARNING; 
+                prev_in_dir_track->status = WARNING;
 
             return 1;
 
         case 2:
-            track.status = WARNING;
+            track->status = WARNING;
             return 0;
 
         default:
-            track.status = OCCUPIED; 
-            // If the sensor fails, consider the track occupied to avoid collisions
+            track->status = OCCUPIED;
             
-            if (prev_in_dir_index && prev_in_dir_track.status != OCCUPIED) 
-                // Check te previous track to not be in OCCUPIED to avoid overwriting a real OCCUPIED with a WARNING
-                prev_in_dir_track.status = WARNING;
+            if (prev_in_dir_track && prev_in_dir_track->status != OCCUPIED)
+                prev_in_dir_track->status = WARNING;
             return -1; // Unknown state
     }
 }
