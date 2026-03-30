@@ -1,5 +1,8 @@
 #include "types.h"
 
+//generates the log mensages in the file /var/log/gestion_trenes.log, the format is [LEVEL] message
+void log_message(LogLevel level, const char *format, ...);
+
 //Creates a track in system with the params, if id is 0 will generate one automatically
 ErrorCode create_track(System *system, int id, Sensor *sensor, int next, int prev);
 

@@ -20,6 +20,43 @@ int generate_id(){
     return global_id_counter++;
 }
 
+void log_message(LogLevel level, const char *format, ...){
+
+    const char *level_str;
+    switch (level) {
+        case LOG_ERROR:   level_str = "ERROR"; break;
+        case LOG_WARNING: level_str = "WARNING"; break;
+        case LOG_INFO:    level_str = "INFO"; break;
+        case LOG_DEBUG:   level_str = "DEBUG"; break;
+        default:          level_str = "UNKNOWN"; break;
+    }
+    time_t t;
+    struct tm *tm_info;
+    char buffer[32];  // 20 for format, 12 more for extra safety
+
+    time(&t);                     // Get actual time
+    tm_info = localtime(&t);      // Use local time
+
+    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", tm_info);
+
+    va_list args;
+    va_start(args, format);
+
+    FILE *f = fopen("./gestion_trenes.log", "a");
+    if (!f) {
+        fprintf(stderr, "[CRITICAL] Failed to open log file\n");
+        return;
+    }
+
+    fprintf(f, "%s [%s] ", buffer, level_str);
+    vfprintf(f, format, args);
+    fprintf(f, "\n");
+    fclose(f);
+
+    va_end(args);   
+}
+
+
 ErrorCode create_track(System *system, int id, Sensor *sensor, int next, int prev) {
     if (!system || !sensor) return ERR_INVALID_ARG;
     if (next < -1 || next >= system->count) return ERR_INVALID_ARG;
@@ -102,6 +139,8 @@ ErrorCode insert_switch(System *system, int id, Sensor *sensor, int track_next, 
     if (track_prev >= 0) system->array[track_prev].next_index = sw_index;
     if (track_next >= 0) system->array[track_next].prev_index = sw_index;
 
+    log_message(LOG_INFO, "Inserted switch with ID %d between tracks %d and %d", id, track_prev, track_next);
+
     return ERR_OK;
 }
 
@@ -110,6 +149,7 @@ ErrorCode create_straight_line(System *system, int num_tracks, size_t *head_inde
     if (num_tracks <= 0) return ERR_INVALID_ARG;
 
     int current_index = -1;
+    int first_created_index = -1;
 
     for (int i = 1; i <= num_tracks; i++) {
         Sensor *sen = malloc(sizeof(Sensor));
@@ -121,6 +161,10 @@ ErrorCode create_straight_line(System *system, int num_tracks, size_t *head_inde
         if(err != ERR_OK) return ERR_GENERAL;
 
         int new_index = system->count - 1;
+
+        if (first_created_index == -1) {
+            first_created_index = new_index;
+        }
         
         if (current_index >= 0) {
             system->array[current_index].next_index = new_index;
@@ -128,7 +172,12 @@ ErrorCode create_straight_line(System *system, int num_tracks, size_t *head_inde
 
         current_index = new_index;
     }
-    (*head_index) = current_index;
+    if (first_created_index >= 0) {
+        (*head_index) = first_created_index;
+    }
+    
+    log_message(LOG_INFO, "Created straight line of %d tracks starting at index %zu", num_tracks, *head_index);
+
     return ERR_OK;
 }
 
@@ -168,13 +217,10 @@ void print_tracks_with_switches(System *system, int index) {
         
         if (current_track.type == SWITCH_TRACK) {
 
-            // Contar tracks en la rama
-            int branch_count = count_branch_tracks(system, current_track.branch);
-
             if (current_track.pos == STRAIGHT_POS)
-                printf("(%d)SW[→](%d) ", current_track.id,branch_count);
+                printf("(%d)SW[→]", current_track.id);
             else
-                printf("(%d)SW[~](%d) ", current_track.id, branch_count);
+                printf("(%d)SW[~]", current_track.id);
 
             // También podemos imprimir la rama recursivamente
             if (current_track.branch){
@@ -251,6 +297,7 @@ ErrorCode read_sensor_data(Sensor *sensor) {
     //TODO: Implement the real data
     int data = rand() % 3;
     sensor->actual_state = data; // Simulamos lectura de sensor (0, 1 o 2)
+    log_message(LOG_DEBUG, "Read sensor data: %d", data);
     return ERR_OK;
 }
 
@@ -306,8 +353,11 @@ int update_track_status(System *system, int track_index){
             
             if (prev_in_dir_track && prev_in_dir_track->status != OCCUPIED)
                 prev_in_dir_track->status = WARNING;
+            
+            log_message(LOG_WARNING, "Unknown sensor state %d for track index %d, setting status to OCCUPIED", sensor->actual_state, track_index);
             return -1; // Unknown state
     }
+    log_message(LOG_DEBUG, "Updated track index %d to status %d based on sensor state %d", track_index, track->status, sensor->actual_state);
 }
 
 //forces the status without reading the sensor
@@ -319,20 +369,15 @@ ErrorCode force_update_track_status(System *system, int track_index, Status new_
     
     system->array[track_index].status = new_status;
     
+    log_message(LOG_INFO, "Force updated track index %d to status %d", track_index, new_status);
+
     return ERR_OK;
 }
 
 void update_system_status(System *system, int index){
-    if (!system || index < -1) return;
-    int current = index;
-    while (current < system->count) {
+    if (!system || index < 0) return;
+    for(int current = 0; current < system->count; current++){
         update_track_status(system, current);
-        if (system->array[current].type == SWITCH_TRACK) {
-            if (system->array[current].branch > -1) {
-                update_system_status(system, system->array[current].branch);
-            }
-        }
-        current++;
     }
 }
 
