@@ -11,6 +11,7 @@ A small C project to model and manage a simple railway system (tracks, switches 
 - Simulated sensors and utilities to update track status.
 - Helpers to build straight lines and count branch tracks.
 - Minimal, portable C code with a Makefile for debug and release builds.
+- Basic logging of creation and states.
 
 ---
 
@@ -30,7 +31,7 @@ git clone <repo-url>
 cd gestion-trenes
 make release       # builds dist/gestion_trenes_v0.0.1
 # or
-make debug         # builds gestion_trenes_debug
+make debug         # builds debug-datetime
 ```
 
 Run the release or debug binary:

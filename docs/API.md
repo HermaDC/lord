@@ -23,14 +23,20 @@ This document describes the public structures and functions of the `gestion-tren
 - `typedef enum SwitchPosition { STRAIGHT_POS, DIVERGING_POS } SwitchPosition;`
   - Position of a `Switch`.
 
-- `typedef struct Track { TrackType type; int id; Status status; struct Track *next; struct Track *prev; Direction dir; Sensor *sensors; } Track;`
+- `typedef struct Track { TrackType type; int id; Status status; int next_index; int prev_index; Direction dir; Sensor *sensors; } Track;`
   - Base structure for a track.
-  - `next` and `prev` form the chain; they may be `NULL` if sides are not required.
+  - `next_index` and `prev_index` form the chain.
 
-- `typedef struct { Track base; Track *branch; SwitchPosition pos; } Switch;`
-  - Extends `Track` with a `branch` and a `pos`.
+- `typedef enum {ERR_OK = 0, ERR_GENERAL, ERR_INVALID_ARG, ERR_NULL_PTR, ERR_NO_MEMORY, ERR_NOT_FOUND, ERR_ALREADY_EXISTS, ERR_EMPTY, ERR_INVALID_STATE, ERR_OUT_OF_BOUNDS,    ERR_NOT_CONNECTED, ERR_BROKEN_LINK} ErrorCode;`
+  - General error codes for functions.
 
-- `typedef struct { int top; Switch *data[MAX_STACK_SIZE];} SwitchStack;`
+//Holds all the info for a line of the system
+- `typedef struct System {Track *array; int count; size_t buffer;} System;`
+  - Represents the entire system as an array of tracks, with a count of how many tracks are currently in the system and the buffer size allocated.
+  - `array` is a dynamic array of `Track` structures, where each track can be a straight track or a switch track. 
+  - The `count` field indicates how many tracks are currently in the system, while the `buffer` field indicates the total allocated size of the array.
+
+- `typedef struct { int top; void *data[MAX_STACK_SIZE];} SwitchStack;`
   - Creates a stack of Switch pointers
 
 - `typedef enum { TOKENIZE_OK, TOKENIZE_MISSING_NUM, TOKENIZE_UNKNOWN_CHAR,    TOKENIZE_UNMATCHED_PARENTHESES, TOKENIZE_OOM, TOKENIZE_EMPTY_STR } TokenizeError;`
@@ -42,167 +48,115 @@ This document describes the public structures and functions of the `gestion-tren
 - `typedef struct {int value; TokenType type; size_t column;} Token;`
   - The token structure, holds the type value and the column of the string where the token cames from.
 
+- `typedef struct {int help; int interactive; int version; int verbose; char *file; char *command; int update_time;} CLIOptions;`
+  - Stores the options of the CLI, used for parsing the arguments and printing the help.
 ---
 
 ## Public Functions
 
-### Track \*create_track(int id, Sensor *sensor, Track *next, Track *prev)
-- Creates and returns a new `Track` (type `STRAIGHT`).
-- Parameters:
-  - `id`: track identifier.
-  - `sensor`: pointer to `Sensor` (owned by the track; freed in `free_tracks`).
-  - `next`, `prev`: initial pointers to other `Track` (may be `NULL`).
-- Return: pointer to the created `Track` or `NULL` on error (malloc).
-- Notes: the `Track` initializes `status = CLEAR` and `dir = NEXT`.
+### const char *error_to_string(ErrorCode err);
+  - parses the error value to a string to help debugging
 
+### CLIOptions parse_args(int argc, char *argv[]);
+  - Parses the command line arguments and returns a `CLIOptions` struct with the parsed values.
+  - Parameters:
+    - `argc`: argument count from `main()`.
+    - `argv`: argument vector from `main()`.
+  - Return: a `CLIOptions` struct with the parsed options.
+
+### void print_help();
+  - Prints the help message for the command-line interface.
+
+### ErrorCode create_track(System *system, int id, Sensor *sensor, int next, int prev);
+  - Creates a track in system with the params, if id is 0 will generate one automatically
+
+### ErrorCode create_switch(System *system, int id, Sensor *sensor, int next, int prev, int branch);
+  - Creates a switch in system with the params, if id is 0 will generate one automatically
+
+### ErrorCode insert_switch(System *system, int id, Sensor *sensor, int track_next, int track_prev, int branch);
+  - Creates a switch and inserts it in system with the params, if id is 0 will generate one automatically
+
+### ErrorCode create_straight_line(System *system, int num_tracks, size_t *index);
+  - Creates a num_tracks straight line of tracks in system, in index stores the index of the first track of the line
+  - Parameters:
+    - `system`: pointer to the `System` struct representing the entire system.
+    - `num_tracks`: number of straight tracks to create in the line.
+    - `index`: pointer to a size_t variable where the index of the first track of the line will be stored.
+  - Return: `ERR_OK` on success, or an appropriate error code on failure.
+
+### int get_last_track(System *system, int start_index);
+  - Returns the index of the last track connected counting from start_index
+  - Parameters:
+    - `system`: pointer to the `System` struct representing the entire system.
+    - `start_index`: index of the track to start counting from.
+  - Return: index of the last track.
+
+
+### int get_next_track(System *system, int index);
+  - Returns the index of the next track from index
+  - Parameters:
+    - `system`: pointer to the `System` struct representing the entire system.
+    - `index`: index of the track to get the next track from.
+  - Return: index of the next track. 
+
+### int count_branch_tracks(System *system, int branch_index);
+  - Counts recursively the tracks, including the branches, counting from branch_index
+  - Parameters:
+    - `system`: pointer to the `System` struct representing the entire system.
+    - `branch_index`: index of the track to start counting from (should be a branch track).
+  - Return: total count of tracks in the branch.
+
+### ErrorCode force_update_track_status(System *system, int track_index, Status new_status);
+  - Forces to update the track_index track to new_status
+  - Parameters:
+    - `system`: pointer to the `System` struct representing the entire system.
+    - `track_index`: index of the track to update.
+    - `new_status`: new status to set for the track.
+  - Return: `ERR_OK` on success, or an appropriate error code on failure.
+
+### void update_system_status(System *system, int index);
+  - Updates all the system
+  - Parameters:
+    - `system`: pointer to the `System` struct representing the entire system.
+    - `index`: index of the track to start the update from (can be any track in the system).
+
+### ErrorCode init_system(System *sys, size_t initial_capacity);
+  - Initializes the system with an initial capacity for tracks.
+  - Parameters:
+    - `sys`: pointer to a `System` struct to initialize.
+    - `initial_capacity`: initial number of tracks to allocate space for.
+  - Return: `ERR_OK` on success, or an appropriate error code on failure.
 ---
 
-### Switch *create_switch(int id, Sensor *sensor, Track *next, Track *prev, Track *branch)
-- Creates a `Switch` (structure containing `Track base` + `branch` + `pos`).
-- Parameters: similar to `create_track`, plus `branch` (pointer to the branch).
-- Return: pointer to the `Switch` or `NULL` on error (malloc).
-- Notes: `pos` starts at `STRAIGHT_POS`.
-
----
-
-### Switch *insert_switch(Track *track_prev, Track *track_next, Sensor *sensor, Track *branch)
-- Inserts a `Switch` between `track_prev` and `track_next`.
-- Parameters:
-  - `track_prev`, `track_next`: must be non-NULL and **consecutive** in the chain.
-  - `sensor`: sensor of the switch (may be `NULL` if unused).
-  - `branch`: points to the switch branch (may be `NULL`).
-- Return: pointer to the inserted `Switch` or `NULL` if `track_prev`/`track_next` are `NULL` or on memory failure.
-- Effect: updates `track_prev->next` and `track_next->prev` to link the switch.
-- Safety note: ensure `branch` does not introduce unexpected cycles.
-
----
-
-### Track *create_straight_line(int num_tracks)
-- Creates a chain of `num_tracks` connected `Track` objects (each with its own `Sensor`).
-- Return: pointer to the head of the list or `NULL` on error.
-- Memory note: each `Sensor` is allocated and owned by its `Track`.
-
----
-
-### int count_branch_tracks(Track *branch)
-- Counts the number of tracks in a branch, including recursive sub-branches of `Switch`.
-- Return: count (>= 0).
-
----
-
-### int read_sensor_data(Sensor *sensor)
-- :warning: Do not use in production debug builds!
-- Simulation function that fills `sensor->actual_state` with a random value {0,1,2}.
-- Return: the state value (0=CLEAR, 1=OCCUPIED, 2=WARNING) or `-1` if `sensor == NULL`.
-
----
-
-### int update_track_status(Track *track)
-- Reads the associated sensor and updates `track->status` accordingly.
-- Behavior:
-  - If `track == NULL` or `track->sensors == NULL` => returns `-1`.
-  - `sensor_state < 0`: marks `track` as `OCCUPIED`, marks `track->prev` or `track->next` (depending on `track->dir`) as `WARNING` if present, returns `-1`.
-  - `0` => `CLEAR`, returns `0`.
-  - `1` => `OCCUPIED`, marks `track->prev` or `track->next` (depending on `track->dir`) as `WARNING` (if present and not `OCCUPIED`), returns `1`.
-  - `2` => `WARNING`, returns `0`.
-- Return: `-1` on error, `0` if CLEAR/WARNING, `1` if OCCUPIED.
-- Safety recommendation: always verify `track` and `track->sensors` are not `NULL` before calling.
-
----
-
-### void update_system_status(Track *head)
-- Updates the status of all tracks in a chain starting from `head` by reading their sensors.
-- Parameters:
-  - `head`: pointer to the first track (may be `NULL` to do nothing).
-- Effect: calls `update_track_status()` on each track following `next` pointers. Does not traverse branches of `Switch` objects.
-- Notes: safe to call with `NULL` head.
-
----
-
-### Track *get_last_track(Track *head)
-- Traverses the chain from `head` and returns the last track (where `next == NULL`).
-- Return: pointer to the last track, or `head` if it's the only track, or `NULL` if `head == NULL`.
-- Notes: does not traverse `Switch` branches.
-
----
-
-### int force_update_track_status(Track *track, Status new_status)
-- Forces the `track` state to `new_status` without reading the sensor.
-- Return: `0` on success, `-1` if `track == NULL`.
-- Note: this function performs no additional checks; use with caution.
-
----
-
-### bool is_in_chain(Track *head, Track *target)
-- Checks whether `target` appears in the chain starting at `head` following `next`.
-- Return: `true` if present; `false` otherwise.
-
----
-
-### Track **load_system_layout_from_file(const char *path, size_t *count)
-- Loads the system layout from the file in `path`
-- Parameters:
-  - `path`: file path to read (must be a valid file).
-  - `count`: pointer to `size_t` where the number of lines loaded will be stored.
-- Return: pointer to an array of `Track*` heads (one for each line in the file) or `NULL` on error (invalid path, file format, memory failure).
-- Free the pointer returned. The tracks should be freed with their function [`free_tracks()`](#void-free_trackstrack-head-track-original)
-
-
-### void free_tracks(Track *head, Track *original)
-- Recursively frees a list of `Track` starting at `head` and their `Sensor` objects.
-- Parameters:
-  - `original`: used to avoid freeing branches that are part of the main list (pass `NULL` to use `head` as `original`).
-- Notes: frees `Switch` objects and their `branch` appropriately (if not in the original chain).
-- Recommendation: after `free_tracks`, do not use freed `Track` or `Sensor` pointers.
-
----
-
-## Utility Functions (main.c)
-
-### Track *get_next_track(Track *track)
-- Returns the next track logically following `track`.
-- Behavior:
-  - If `track` is a `Switch` in `DIVERGING_POS` with a branch, returns the branch.
-  - Otherwise, returns `track->next` (may be `NULL`).
-- Return: pointer to the next track or `NULL` if there is none.
-- Notes: useful for traversing the system while respecting switch positions.
-
----
-
-### void print_tracks_with_switches(Track *head)
-- Prints a visual representation of all tracks starting from `head`, including switches and branches.
-- Output format:
-  - Regular tracks are shown as `------ ` (with color coding: green=CLEAR, red=OCCUPIED, yellow=WARNING).
-  - Switches display `SW[→]` (straight position) or `SW[~]` (diverging position) followed by branch count in parentheses.
-  - Branches are enclosed in curly braces `{ ... }`.
-- Notes: does not include newlines between chains; print a newline manually if needed.
-- Parameters:
-  - `head`: pointer to the first track (may be `NULL` to do nothing).
+void print_tracks_with_switches(System *system, int index);
+  - Prints the system tracks with the switches, starting from index
+  - Parameters:
+    - `system`: pointer to the `System` struct representing the entire system.
+    - `index`: index of the track to start printing from (can be any track in the system).
 
 ---
 
 ## Minimal Usage Example
 ```c
-// Create a line and update the status of a track
-Track *line = create_straight_line(5);
-update_track_status(line->next->next->next); // updates track 4 (if it exists)
-print_tracks_with_switches(line);
-free_tracks(line, NULL);
+int main(){
+    //Creates and initialize the system
+    System sys;
+    init_system(&sys, 10);
 
-// Load system from file
-size_t count = 0;
-Track **system = load_system_layout_from_file("./system_state.txt", &count);
-if (system) {
-    for (int i = 0; i < count; i++) {
-        update_system_status(system[i]);
-        print_tracks_with_switches(system[i]);
-        printf("\n");
+    size_t head_index;
+
+    //creates a straight line of 5 tracks
+    ErrorCode err = create_straight_line(&sys, 5, &head_index);
+    if (err != ERR_OK) {
+        fprintf(stderr, "Error creating straight line\n");
+        return 1;
     }
-    
-    // Free all chains
-    for (int i = 0; system[i]; i++) {
-        free_tracks(system[i], NULL);
-    }
-    free(system);
+
+    //Prints before and after updating the system status
+    print_tracks_with_switches(&sys, 0);
+    printf("\n");
+    update_system_status(&sys, 0);
+    print_tracks_with_switches(&sys, 0);
+    return 0;
 }
 ```
