@@ -84,10 +84,13 @@ Token *tokenize(const char *str, size_t *num_tokens, TokenizeError *error_code) 
             i += 2;
         }
         else if(c == '#' || strncmp(&str[i], "//", 2) == 0){
-            if(tokens) {
-                //The rest of the string should be treated like a comment
-                return tokens;
+            *error_code = TOKENIZE_OK;
+            // Stop processing at comment, return current tokens
+            if (*num_tokens == 0) {
+                free(tokens);
+                return NULL;
             }
+            return tokens;
         }
         else {
             fprintf(stderr, RED "Syntax Error: " RESET "Unexpected character '%c'\n"
@@ -156,13 +159,29 @@ int check_syntax(Token *tokens_arr, char *original_str, size_t count, TokenizeEr
                 return -1;
             }
         }
-        else if(tokens_arr[i].type == OPEN){
-            balance++;
-            if(i + 1 >= count || tokens_arr[i + 1].type != NUMBER){
-                fprintf(stderr, RED "Syntax Error:" RESET " Parenthesis must be followed by a number\n"
+        else if(tokens_arr[i].type == NUMBER) {
+            if(tokens_arr[i].value <= 0) {
+                fprintf(stderr, RED "Syntax Error:" RESET " Number of tracks must be greater than 0\n"
                     "Column: %zu\n", tokens_arr[i].column );
                 *error_code = TOKENIZE_MISSING_NUM;
                 print_error_at(original_str, tokens_arr[i].column);
+                return -1;
+            }
+        }
+        else if(tokens_arr[i].type == OPEN){
+            balance++;
+            if(i + 1 >= count || tokens_arr[i+1].type != NUMBER){
+                fprintf(stderr, RED "Syntax Error:" RESET " Parenthesis must be followed by a valid number\n"
+                    "Column: %zu\n", tokens_arr[i].column );
+                *error_code = TOKENIZE_MISSING_NUM;
+                print_error_at(original_str, tokens_arr[i].column);
+                return -1;
+            }
+            if(tokens_arr[i+1].value <=0){
+                fprintf(stderr, RED "Syntax Error:" RESET " Number of tracks must be greater than 0\n"
+                    "Column: %zu\n", tokens_arr[i+1].column );
+                *error_code = TOKENIZE_MISSING_NUM;
+                print_error_at(original_str, tokens_arr[i+1].column);
                 return -1;
             }
         } else if(tokens_arr[i].type == CLOSE){
@@ -174,7 +193,7 @@ int check_syntax(Token *tokens_arr, char *original_str, size_t count, TokenizeEr
                 print_error_at(original_str, tokens_arr[i].column);
                 return -1;
             } //the previous of the close parenthesis should be a number
-            if(tokens_arr[i-1].type != NUMBER){
+            if(i==0 || tokens_arr[i-1].type != NUMBER){
                 fprintf(stderr, RED "Syntax Error: " RESET "Missing number before closing parenthesis\n"
                     "Column: %zu\n", tokens_arr[i].column);
                 *error_code = TOKENIZE_MISSING_NUM;
