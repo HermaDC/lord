@@ -125,13 +125,13 @@ ErrorCode init_system(System *sys, size_t initial_capacity);
 //
 typedef struct {
     int top;
-    void *data[MAX_STACK_SIZE];
+    int data[MAX_STACK_SIZE];
 } SwitchStack;
 
-void initialize(SwitchStack *stack);
+void initialize_stack(SwitchStack *stack);
 
-void push(SwitchStack *stack, void *value);
+void push(SwitchStack *stack, int value);
 
-void *pop(SwitchStack *stack);
+int pop(SwitchStack *stack);
 
 #endif // TYPES_H

@@ -4,6 +4,7 @@
 #include <string.h>
 #include <time.h>
 #include <stdarg.h>
+#include <stdint.h>
 
 #include "utils.h"
 #include "parser.h"
@@ -146,7 +147,11 @@ ErrorCode insert_switch(System *system, int id, Sensor *sensor, int track_next, 
 
 ErrorCode create_straight_line(System *system, int num_tracks, size_t *head_index) {
     if (!system) return ERR_INVALID_ARG;
-    if (num_tracks <= 0) return ERR_INVALID_ARG;
+    if (num_tracks < 0) return ERR_INVALID_ARG;
+    if (num_tracks == 0) {
+        *head_index = NO_FOLLOWING_TRACK;
+        return ERR_OK;
+    }
 
     int current_index = -1;
     int first_created_index = -1;
@@ -183,10 +188,10 @@ ErrorCode create_straight_line(System *system, int num_tracks, size_t *head_inde
 
 int get_last_track(System *system, int start_index) {
     if (!system) return 0;
-    if (start_index < system->count) start_index=0;
+    if (start_index < 0 || start_index >= system->count) start_index = 0;
 
     int current = start_index;
-    while (system->array[current].next_index != -1) { //TODO posible buffer_overflow
+    while (current > -1 && current < system->count && system->array[current].next_index != -1) {
         current = system->array[current].next_index;
     }
     return current;
@@ -210,7 +215,10 @@ int get_next_track(System *system, int index) {
 }
 
 void print_tracks_with_switches(System *system, int index) {
-    if(!system) printf("NULL pointer passed\n");
+    if(!system){
+        printf("NULL pointer passed\n");
+        return;
+    }
     int current = index;
     while (current > -1 && current < system->count) {
         Track current_track = system->array[current];
@@ -255,38 +263,45 @@ bool is_in_chain(System *system, int origin, int dest, ErrorCode *exit_err) {
         *(exit_err) = ERR_INVALID_ARG;
         return false;
     }
-    
-    for (int current = origin; current >= system->count; current++) {
+
+    int current = origin;
+    while (current > -1 && current < system->count) {
         if (current == dest) return true;
+        current = system->array[current].next_index;
     }
 
     return false;
 }
 
 int count_track(System *system, int *last){
+    if (!system || system->count <= 0) {
+        if (last) *last = -1;
+        return 0;
+    }
+
     int count = 0;
     int current = 0;
-    while((current > -1 || current < system->count) && system->array[count].type == STRAIGHT){
-        current = system->array[count].next_index;
+
+    while (current > -1 && current < system->count && system->array[current].type == STRAIGHT) {
+        current = system->array[current].next_index;
         count++;
     }
+
     if (last) *last = current;
     return count;
 }
 
 int count_branch_tracks(System *system, int branch_index) {
     int count = 0;
-    if(branch_index < 0) return 0;
     int current = branch_index;
-    while (current != -1 ){
-        if ((current > -1 || current < system->count) && system->array[count].type == SWITCH_TRACK) {
+    while (current > -1 && current < system->count) {
+        if (system->array[current].type == SWITCH_TRACK) {
             // Contar también la rama de un switch dentro de esta rama
-            count += count_branch_tracks(system, system->array[count].branch);
-        }
-        else{
+            count += count_branch_tracks(system, system->array[current].branch);
+        } else {
             count++;
         }
-        current = system->array[count].next_index;
+        current = system->array[current].next_index;
     }
     return count;
 }
@@ -381,147 +396,245 @@ void update_system_status(System *system, int index){
     }
 }
 
-/*
-//return the head of the tracks that tokens described, if error, return NULL
-Track *tokens_to_track(Token *tokens, size_t tokens_count){
-    //pahse 1: get the first number
-    //phase 2: get the next token, if number add it, is sw stack it
-    //phase 3: if number, check actual stack, if SW increment stack
-    //phase 4: return the head
+//Returns the index of the first track
+int tokens_to_track(System *system, Token *tokens, size_t token_count){
+    if (!system || !tokens || token_count <= 0) return NO_FOLLOWING_TRACK;
 
-    if(!tokens || tokens_count < 1) return NULL;
+    int head_index = NO_FOLLOWING_TRACK;
+    int prev_index = NO_FOLLOWING_TRACK;
+    bool pending_switch = false;
 
-    //get the first track of all system
-    if(tokens[0].value < 1) return NULL;
-    Track *head = create_straight_line(tokens[0].value);
-    //Track *last = get_last_track(head);
+    typedef struct {
+        int switch_index;
+        int outer_prev;
+        int branch_head;
+        int branch_last;
+    } SwitchContext;
 
-    //prepare stack for switches
-    size_t stack_buffer = 1;
-    Switch **stack = malloc(stack_buffer*sizeof(Switch*));
-    if(!stack) return NULL;
-    size_t stack_count = 0;
+    SwitchContext switch_stack[MAX_STACK_SIZE];
+    int switch_stack_top = -1;
 
-    for(size_t i = 1; i<tokens_count; i++){
-        if(tokens[i].type == NUMBER){
-            if(stack_count > 0){
-                //Switch *sw = stack[stack_count-1];
+    for (size_t i = 0; i < token_count; i++) {
+        Token actual = tokens[i];
 
+        switch (actual.type) {
+            case SW:
+                if (pending_switch) {
+                    log_message(LOG_ERROR, "Unexpected SW nested before OPEN at token %zu", i);
+                    return NO_FOLLOWING_TRACK;
+                }
+                pending_switch = true;
+                continue;
+
+            case OPEN:
+                if (!pending_switch) {
+                    log_message(LOG_ERROR, "Unexpected OPEN without SW at token %zu", i);
+                    return NO_FOLLOWING_TRACK;
+                }
+
+                {
+                    Sensor *sen = malloc(sizeof(Sensor));
+                    if (!sen) return NO_FOLLOWING_TRACK;
+                    sen->hex_direction = 0;
+                    sen->actual_state = 0;
+
+                    ErrorCode err = create_switch(system, generate_id(), sen, NO_FOLLOWING_TRACK, prev_index, NO_FOLLOWING_TRACK);
+                    if (err != ERR_OK) {
+                        log_message(LOG_ERROR, "Failed to create switch for token %zu: %s", i, error_to_string(err));
+                        return NO_FOLLOWING_TRACK;
+                    }
+
+                    int switch_index = system->count - 1;
+                    if (prev_index >= 0) {
+                        system->array[prev_index].next_index = switch_index;
+                    }
+                    if (head_index == NO_FOLLOWING_TRACK) {
+                        head_index = switch_index;
+                    }
+
+                    if (switch_stack_top + 1 >= MAX_STACK_SIZE) {
+                        log_message(LOG_ERROR, "Switch stack overflow at token %zu", i);
+                        return NO_FOLLOWING_TRACK;
+                    }
+
+                    switch_stack[++switch_stack_top] = (SwitchContext){
+                        .switch_index = switch_index,
+                        .outer_prev = prev_index,
+                        .branch_head = NO_FOLLOWING_TRACK,
+                        .branch_last = NO_FOLLOWING_TRACK
+                    };
+
+                    prev_index = NO_FOLLOWING_TRACK;
+                    pending_switch = false;
+                }
+                continue;
+
+            case CLOSE:
+                if (switch_stack_top < 0) {
+                    log_message(LOG_ERROR, "Unexpected CLOSE without matching switch at token %zu", i);
+                    return NO_FOLLOWING_TRACK;
+                }
+
+                {
+                    SwitchContext ctx = switch_stack[switch_stack_top--];
+                    int swidx = ctx.switch_index;
+
+                    system->array[swidx].branch = ctx.branch_head;
+                    if (ctx.branch_head >= 0) {
+                        system->array[ctx.branch_head].prev_index = swidx;
+                    }
+
+                    prev_index = swidx;
+                }
+                continue;
+
+            case NUMBER:
+                if (actual.value <= 0) {
+                    log_message(LOG_ERROR, "Invalid number of tracks %d at token %zu", actual.value, i);
+                    return NO_FOLLOWING_TRACK;
+                }
+
+                {
+                    size_t chain_head;
+                    ErrorCode err = create_straight_line(system, actual.value, &chain_head);
+                    if (err != ERR_OK) {
+                        log_message(LOG_ERROR, "Failed to create track chain for token %zu: %s", i, error_to_string(err));
+                        return NO_FOLLOWING_TRACK;
+                    }
+
+                    if (head_index == NO_FOLLOWING_TRACK) {
+                        head_index = chain_head;
+                    }
+
+                    if (prev_index >= 0) {
+                        system->array[prev_index].next_index = chain_head;
+                        system->array[chain_head].prev_index = prev_index;
+                    }
+
+                    int chain_last = system->count - 1;
+                    prev_index = chain_last;
+
+                    if (switch_stack_top >= 0) {
+                        SwitchContext *ctx = &switch_stack[switch_stack_top];
+                        if (ctx->branch_head == NO_FOLLOWING_TRACK) {
+                            ctx->branch_head = chain_head;
+                        }
+                        ctx->branch_last = chain_last;
+                    }
+                }
+                break;
+
+            default:
+                log_message(LOG_ERROR, "Unknown token type %d at token %zu", actual.type, i);
+                return NO_FOLLOWING_TRACK;
+        }
+
+        printf("Stack %d\n", switch_stack_top + 1);
+    }
+
+    if (switch_stack_top >= 0) {
+        log_message(LOG_ERROR, "Unclosed switch expression at end of token stream");
+        return NO_FOLLOWING_TRACK;
+    }
+
+    log_message(LOG_INFO, "Converted %zu tokens to track chain starting at index %d", token_count, head_index);
+    return head_index;
+}
+
+//returns an array of systems
+System* load_system_layout_from_file(const char* path, size_t *out_count){
+    if(!path || !out_count) return NULL;
+    *out_count = 0;
+
+    size_t buffer = 1;
+    FILE *f = fopen(path, "r");
+    if(!f) return NULL;
+
+    char *line = NULL;
+    size_t read = 0;
+    System *system_arr = malloc(buffer * sizeof(System));
+    if (!system_arr) {
+        fclose(f);
+        return NULL;
+    }
+
+    for (size_t i = 0; i < buffer; i++) {
+        system_arr[i].array = NULL;
+        system_arr[i].count = 0;
+        system_arr[i].buffer = 0;
+    }
+
+    if (init_system(&system_arr[0], 16) != ERR_OK) {
+        free(system_arr);
+        fclose(f);
+        return NULL;
+    }
+
+    while(getline(&line, &read, f)>0){
+        line[strcspn(line, "\n")] = 0; //remove newline
+        if(strlen(line)<1) continue; //skip empty lines
+        log_message(LOG_DEBUG, "Parsing line: \"%s\"", line);
+
+        if (system_arr[*out_count].array == NULL) {
+            if (init_system(&system_arr[*out_count], 16) != ERR_OK) {
+                log_message(LOG_ERROR, "Failed to initialize system array for line %zu", *out_count);
+                free(line);
+                fclose(f);
+                return NULL;
+            }
+        }
+
+        size_t num_tokens;
+        TokenizeError err = 0;
+        Token *tokens = tokenize(line, &num_tokens, &err);
+        if (err != TOKENIZE_OK) {
+            log_message(LOG_ERROR, "Tokenization failed for line %zu: %d", *out_count, err);
+            free(line);
+            fclose(f);
+            return NULL;
+        }
+        if(!tokens) continue; //empty line or comments
+
+        check_syntax(tokens, line, num_tokens, &err);
+        if(err != TOKENIZE_OK){
+            log_message(LOG_ERROR, "Syntax check failed for line %zu: %d", *out_count, err);
+        }
+
+        int head_index = tokens_to_track(&system_arr[*out_count], tokens, num_tokens);
+        if (head_index == NO_FOLLOWING_TRACK) {
+            log_message(LOG_ERROR, "Failed to convert tokens to track chain for line %zu", *out_count);
+            free(tokens);
+            free(line);
+            fclose(f);
+            return NULL;
+        }
+
+        free(tokens);
+
+        (*out_count)++;
+        if (*out_count >= buffer) {
+            size_t old_buffer = buffer;
+            buffer *= 2;
+            System *temp = realloc(system_arr, buffer * sizeof(System));
+            if (!temp) {
+                log_message(LOG_ERROR, "Failed to expand system array buffer to %zu", buffer);
+                free(line);
+                fclose(f);
+                return NULL;
+            }
+            system_arr = temp;
+
+            for (size_t j = old_buffer; j < buffer; j++) {
+                system_arr[j].array = NULL;
+                system_arr[j].count = 0;
+                system_arr[j].buffer = 0;
             }
         }
     }
-    free(stack);
-
-    return head;
-}
-
-
-//Given a valid file path it returns an array of count pointers to the head of each line of tracks
-// created from the file, and sets count to the number of lines created.
-//Example `10 SW(10) 10` would create a straight line of 10 tracks,
-//then a switch with a branch of 10 tracks, and then another straight line of 10 tracks
-Track **load_system_layout_from_file(const char *path, size_t *count)
-{
-    if (!path || !count) return NULL;
-
-    *count = 0;
-
-    FILE *file = fopen(path, "r");
-    if (!file) return NULL;
-
-    Track **head = NULL;
-    size_t buffer = 1;
-    char *line = NULL;
-    size_t len = 0;
-
-    head = malloc(buffer*sizeof(Track*));
-    while (getline(&line, &len, file) != -1)
-    {
-        // Remove newline
-        line[strcspn(line, "\n")] = 0;
-
-        printf("parsing: %s\n", line);
-
-        Token *tokens;
-        size_t tokens_count = 0;
-        TokenizeError error;
-        if(strlen(line) <1) continue;
-        tokens = tokenize(line, &tokens_count, &error);
-        if(!tokens || tokens_count < 1) continue;
-
-        if(error != TOKENIZE_OK){
-            //I don't know if skip the line, putting a NULL or raising an error and return none of the array
-            //For now just return NULL
-            printf("failed to tokenize %d", error);
-            free(head);
-            return NULL;
-        }
-        check_syntax(tokens, line, tokens_count, &error);
-        if(error != TOKENIZE_OK){
-            free(head);
-            return NULL;
-        }
-        //call a token_to_track()
-        head[*count] = tokens_to_track(tokens, tokens_count);
-
-        (*count)++;
-        if(*count >= buffer){
-            buffer *= 2;
-            head = realloc(head, buffer*sizeof(Track*));
-            if(!head) goto error;
-        }
-    }
-
     free(line);
-    fclose(file);
 
-    return head;
-
-error:
-    if (line) free(line);
-    if (file) fclose(file);
-
-    if (head) {
-        for (size_t i = 0; i < *count; i++)
-            free_tracks(head[i], NULL);
-        free(head);
-    }
-
-    *count = 0;
-    return NULL;
+    return system_arr;
 }
 
-//TODO fix this, if sw inside sw use parenthesis accordingly.
-// FOr that we should use a stack to store the last sw
-//TODO use the enum for erros intead of int
-ErrorCode save_layout_to_file(const char *path, Track *head){
-    if(!head || !path) return ERR_INVALID_ARG;
-
-    FILE *f = fopen(path, "w");
-    if(!f){
-        return ERR_NOT_FOUND;
-    }
-    
-    Track *current = head;
-    Track *last_checked;
-
-    SwitchStack stack;
-    SwitchStack *stack_p = &stack;
-    initialize(&stack);
-
-    printf("%d", count_track(current, &last_checked));
-    fprintf(f, "%d", count_track(current, &last_checked));
-    current = last_checked;
-    if(current->type == SWITCH_TRACK){
-        printf("SW( ");
-        push(stack_p, (Switch*)current);
-        printf("%d", count_track(((Switch*)current)->branch, &last_checked));
-
-    }
-
-
-
-    fclose(f);
-    return ERR_OK;
-}
-*/
+//Saves the layout of system to path
+//ErrorCode save_system_to_file(System *system, const char* path){}
