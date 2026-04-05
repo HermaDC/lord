@@ -33,23 +33,23 @@ void log_message(LogLevel level, const char *format, ...){
     }
     time_t t;
     struct tm *tm_info;
-    char buffer[32];  // 20 for format, 12 more for extra safety
+    char time_stamp_buffer[32];  // 20 for format, 12 more for extra safety
 
     time(&t);                     // Get actual time
     tm_info = localtime(&t);      // Use local time
 
-    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", tm_info);
+    strftime(time_stamp_buffer, sizeof(time_stamp_buffer), "%Y-%m-%d %H:%M:%S", tm_info);
 
     va_list args;
     va_start(args, format);
 
-    FILE *f = fopen("./gestion_trenes.log", "a");
+    FILE *f = fopen(LOG_PATH, "a");
     if (!f) {
         fprintf(stderr, "[CRITICAL] Failed to open log file\n");
         return;
     }
 
-    fprintf(f, "%s [%s] ", buffer, level_str);
+    fprintf(f, "%s [%s] ", time_stamp_buffer, level_str);
     vfprintf(f, format, args);
     fprintf(f, "\n");
     fclose(f);
@@ -273,14 +273,14 @@ bool is_in_chain(System *system, int origin, int dest, ErrorCode *exit_err) {
     return false;
 }
 
-int count_track(System *system, int *last){
+int count_track(System *system, int start, int *last){
     if (!system || system->count <= 0) {
         if (last) *last = -1;
         return 0;
     }
 
     int count = 0;
-    int current = 0;
+    int current = start;
 
     while (current > -1 && current < system->count && system->array[current].type == STRAIGHT) {
         current = system->array[current].next_index;
@@ -372,7 +372,7 @@ int update_track_status(System *system, int track_index){
             log_message(LOG_WARNING, "Unknown sensor state %d for track index %d, setting status to OCCUPIED", sensor->actual_state, track_index);
             return -1; // Unknown state
     }
-    log_message(LOG_DEBUG, "Updated track index %d to status %d based on sensor state %d", track_index, track->status, sensor->actual_state);
+    //log_message(LOG_DEBUG, "Updated track index %d to status %d based on sensor state %d", track_index, track->status, sensor->actual_state);
 }
 
 //forces the status without reading the sensor
@@ -636,5 +636,60 @@ System* load_system_layout_from_file(const char* path, size_t *out_count){
     return system_arr;
 }
 
+static ErrorCode save_system_chain(FILE *f, System *system, int start_index, bool *need_separator) {
+    if (!f || !system || !need_separator) return ERR_INVALID_ARG;
+
+    int current = start_index;
+    while (current > -1 && current < system->count) {
+        int next_index = NO_FOLLOWING_TRACK;
+        int straight_count = count_track(system, current, &next_index);
+        if (straight_count > 0) {
+            fprintf(f, "%d ", straight_count);
+            *need_separator = true;
+            current = next_index;
+        }
+
+        if (current == -1 || current >= system->count) {
+            break;
+        }
+
+        Track *track = &system->array[current];
+        if (track->type != SWITCH_TRACK) {
+            break;
+        }
+
+        fprintf(f, "SW( ");
+
+        bool inner_separator = false;
+        if (track->branch > -1) {
+            ErrorCode err = save_system_chain(f, system, track->branch, &inner_separator);
+            if (err != ERR_OK) return err;
+        }
+
+        fprintf(f, ") ");
+        *need_separator = true;
+        current = track->next_index;
+    }
+
+    return ERR_OK;
+}
+
 //Saves the layout of system to path
-//ErrorCode save_system_to_file(System *system, const char* path){}
+ErrorCode save_system_to_file(System *system, const char* path){
+    if (!system || !path) return ERR_INVALID_ARG;
+
+    FILE *f = fopen(path, "w");
+    if (!f) return ERR_GENERAL;
+
+    bool need_separator = false;
+    ErrorCode err = save_system_chain(f, system, 0, &need_separator);
+    if (err != ERR_OK) {
+        fclose(f);
+        return err;
+    }
+
+    fprintf(f, "\n");
+    fclose(f);
+    log_message(LOG_INFO, "Saved system layout to file: %s", path);
+    return ERR_OK;
+}

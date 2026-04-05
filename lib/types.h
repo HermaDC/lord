@@ -1,14 +1,18 @@
 #ifndef TYPES_H
 #define TYPES_H
 
+#include <stdbool.h>
 #include <stdlib.h>
 #include "config.h"
 
 #define NO_FOLLOWING_TRACK -1 
 
-#define RED    "\x1b[31m"
-#define GREEN  "\x1b[32m"
-#define YELLOW "\x1b[33m"
+//\x1b[38;2;R;G;Bm
+//    rgb(39, 180, 26)
+#define BLUE "\x1b[38;2;0;160;200m"
+#define RED    "\x1b[38;2;255;20;20m"
+#define GREEN  "\x1b[38;2;39;180;26m"
+#define YELLOW "\x1b[38;2;181;137;0m"
 #define RESET  "\x1b[0m"
 
 //Enum for the different errors that can occur during execution
@@ -34,7 +38,8 @@ typedef enum LogLevel {
     LOG_ERROR,
     LOG_WARNING,
     LOG_INFO,
-    LOG_DEBUG
+    LOG_DEBUG,
+    LOG_TOTAL_LEVELS
 } LogLevel;
 
 
@@ -133,5 +138,9 @@ void initialize_stack(SwitchStack *stack);
 void push(SwitchStack *stack, int value);
 
 int pop(SwitchStack *stack);
+
+bool is_empty(SwitchStack *stack);
+
+bool is_full(SwitchStack *stack);
 
 #endif // TYPES_H

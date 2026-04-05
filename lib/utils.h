@@ -34,13 +34,10 @@ ErrorCode force_update_track_status(System *system, int track_index, Status new_
 void update_system_status(System *system, int index);
 
 #ifdef DEBUG
-//Track **load_system_layout_from_file(const char *path, size_t *count);
+int tokens_to_track(System *system, Token *tokens, size_t token_count);
+System *load_system_layout_from_file(const char *path, size_t *count);
 #endif
 
 
-// Parse a single layout line (e.g. "10 SW(5) 10") into a Track* chain
-// Returns head of the created track chain, or NULL on error.
-//Track *parse_layout_line(const char *input);
-
 //saves the layout to path
-//ErrorCode save_layout_to_file(const char *path, Track *head);
+ErrorCode save_system_to_file(System *system, const char* path);

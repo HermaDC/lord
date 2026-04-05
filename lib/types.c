@@ -43,41 +43,41 @@ void initialize_stack(SwitchStack *stack) {
 }
 
 // Function to check if the stack is empty
-bool isEmpty(SwitchStack *stack) {
+bool is_empty(SwitchStack *stack) {
     return stack->top == -1;  
 }
 
 // Function to check if the stack is full
-bool isFull(SwitchStack *stack) {
+bool is_full(SwitchStack *stack) {
     return stack->top >= MAX_STACK_SIZE - 1;  
 }
 
 // Function to push an element onto the stack
-void push(SwitchStack *stack, void *value) {
-    if (isFull(stack)) {
+void push(SwitchStack *stack, int value) {
+    if (is_full(stack)) {
         printf("Stack Overflow\n");
         return;
     }
     stack->data[++stack->top] = value;
-    printf("Pushed %p onto the stack\n", value);
+    printf("Pushed %d onto the stack\n", value);
 }
 
-void *pop(SwitchStack *stack) {
-    if (isEmpty(stack)) {
+int pop(SwitchStack *stack) {
+    if (is_empty(stack)) {
         printf("Stack Underflow\n");
-        return NULL;
+        return -1;
     }
 
-    void *popped = stack->data[stack->top];
+    int popped = stack->data[stack->top];
     stack->top--;
-    printf("Popped %p from the stack\n", popped);
+    printf("Popped %d from the stack\n", popped);
     return popped;
 }
 
-void *peek(SwitchStack *stack) {
-    if (isEmpty(stack)) {
+int peek(SwitchStack *stack) {
+    if (is_empty(stack)) {
         printf("Stack is empty\n");
-        return NULL;
+        return -1;
     }
     return stack->data[stack->top];
 }
