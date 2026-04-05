@@ -9,6 +9,14 @@ struct Config {
 
 extern const struct Config CONFIG;
 
+#ifdef DEBUG
+    #define SEED 1234
+#else
+    #define SEED time(NULL)
+#endif
+
+#ifndef LOG_PATH
+    #define LOG_PATH "./gestion_trenes.log"
 #endif
 
 #ifndef MAX_STACK_SIZE
@@ -22,3 +30,5 @@ extern const struct Config CONFIG;
 #ifndef REPO_URL
 #define REPO_URL "https://github.com"
 #endif
+
+#endif // CONFIG_H

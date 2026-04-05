@@ -59,7 +59,7 @@ CLIOptions parse_args(int argc, char *argv[]) {
 }
 
 void print_help() {
-    printf("Uso:\n");
+    printf("Use:\n");
     printf("  -h, --help              Show help\n");
     printf("  -f, --file PATH         Load config file\n");
     printf("  -i, --interactive       Runs in interactive mode\n");
