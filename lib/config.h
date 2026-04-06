@@ -5,9 +5,10 @@
 
 struct Config {
     size_t MAX_STACK_AMOUNT;
+    bool VERBOSE;
 };
 
-extern const struct Config CONFIG;
+extern struct Config CONFIG;
 
 #ifdef DEBUG
     #define SEED 1234

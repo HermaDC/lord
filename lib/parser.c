@@ -217,51 +217,6 @@ int check_syntax(Token *tokens_arr, char *original_str, size_t count, TokenizeEr
         return -1;
     }
     *error_code = TOKENIZE_OK;
-    printf("Syntax is correct\n");
     return 0;
 }
 
-int main_p(int argc, char *argv[]) {
-    if(argc < 2){
-        fprintf(stderr, "Usage: %s <file_to_tokenize>\n", argv[0]);
-        return EXIT_FAILURE;
-    }
-    size_t count;
-    Token *tokens = NULL;
-    printf("%s\n",argv[1]);
-    FILE *file = fopen(argv[1], "r");
-    if (!file) {
-        fprintf(stderr, "Error opening file: %s\n", argv[1]);
-        fclose(file);
-        return EXIT_FAILURE;
-    }
-    char *line = NULL;
-    size_t len = 0;
-    while (getline(&line, &len, file) != -1) {
-        line[strcspn(line, "\n")] = 0;
-        printf("Processing line: %s\n", line);
-        TokenizeError error;
-        tokens = tokenize(line, &count, &error);
-        if(tokens){ 
-            print_tokens(tokens, count);
-            check_syntax(tokens, line, count, &error);
-        }
-        if(tokens) free(tokens);
-    }
-    free(line);
-    fclose(file);
-    /*if(argc > 1){
-        tokens = tokenize(argv[1], &count);
-    }
-    else{
-        fprintf(stderr, "Usage: %s <file_to_tokenize>\n", argv[0]);
-        return EXIT_FAILURE;
-    }
-    if(tokens){ 
-        print_tokens(tokens, count);
-        check_syntax(tokens, argv[1], count);
-    }
-
-    if(tokens) free(tokens);*/
-    return 0;
-}

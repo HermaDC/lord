@@ -529,8 +529,6 @@ int tokens_to_track(System *system, Token *tokens, size_t token_count){
                 log_message(LOG_ERROR, "Unknown token type %d at token %zu", actual.type, i);
                 return NO_FOLLOWING_TRACK;
         }
-
-        printf("Stack %d\n", switch_stack_top + 1);
     }
 
     if (switch_stack_top >= 0) {
