@@ -27,7 +27,7 @@ A small C project to model and manage a simple railway system (tracks, switches 
 Clone the repository and build a release or debug binary:
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/HermaDC/lord
 cd gestion-trenes
 make release       # builds dist/gestion_trenes_v0.0.1
 # or
@@ -38,7 +38,7 @@ Run the release or debug binary:
 
 ```bash
 ./dist/gestion_trenes_v0.0.1    # release
-./gestion_trenes_debug          # debug
+./debug-date--time              # debug
 ```
 
 > Note: Use `make run-release` or `make run-debug` to build and run in one step.
@@ -50,25 +50,26 @@ Run the release or debug binary:
 Minimal example showing how to create a line and update a track state:
 
 ```c
-Track *line = create_straight_line(5);
-update_track_status(line->next->next->next); // update track 4 if exists
-// Could also use update_system_status(line) to update all the tracks in the system
-print_tracks_with_switches(line);
-free_tracks(line, NULL);
+System sys;
+init_system(&sys, 10); // Initialize system with capacity for 10 tracks
+create_straight_line(&sys, 10, NULL); // Create a line of 10 tracks
+update_system_status(&sys, 2); // Update the system from index 2 to the correspondingly state
+force_update_track_status(&sys, 3, OCCUPIED); // Force update the track at index 3 to state 1 (occupied)
+free_system(&sys); // Free system resources
 ```
 
 Another example of how to load the layout from a file:
 
 ```c
-Track **heads = load_layout_from_file("./layout"); //returns a array of all the heads in the file
-for(int i; heads[i]; i++){
-    print_with_switches(heads[i]);
-    free_tracks(heads[i]); //free the track with head[i]
+size_t count;
+System *heads = load_system_layout_from_file("./layout", &count); //returns a array of all the heads in the file
+for(int i = 0; i < count; i++){
+    print_tracks_with_switches(&heads[i], 0); //print the layout with the head[i] as root
+    free_system(&heads[i]); //free the track with head[i]
+    printf("\n");
 }
-free(heads); //free the array of heads
-
+free(heads); //free the array of heads    
 ```
----
 
 
 ## Contributing 

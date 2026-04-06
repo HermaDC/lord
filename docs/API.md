@@ -133,6 +133,23 @@ void print_tracks_with_switches(System *system, int index);
   - Parameters:
     - `system`: pointer to the `System` struct representing the entire system.
     - `index`: index of the track to start printing from (can be any track in the system).
+---
+
+System *load_system_layout_from_file(const char *path, size_t *count);
+  - Loads the system layout from a file at the given path, returning a pointer to an array of systems, one per line of the file. The count parameter will be set to the number of systems loaded.
+  - Parameters:
+    - `path`: path to the file containing the system layout.
+    - `count`: pointer to a size_t variable where the number of systems loaded will be stored.
+  - Return: pointer to an array of `System` structs on success, or NULL
+---
+
+ErrorCode save_system_to_file(System *system, const char* path);
+  - Saves the current system layout to a file at the given path.
+  - Parameters:
+    - `system`: pointer to the `System` struct representing the entire system to save.
+    - `path`: path to the file where the system layout will be saved.
+  - Return: `ERR_OK` on success, or an appropriate error code on failure.
+
 
 ---
 
