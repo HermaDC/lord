@@ -149,7 +149,7 @@ ErrorCode create_straight_line(System *system, int num_tracks, size_t *head_inde
     if (!system) return ERR_INVALID_ARG;
     if (num_tracks < 0) return ERR_INVALID_ARG;
     if (num_tracks == 0) {
-        *head_index = NO_FOLLOWING_TRACK;
+        if(head_index) *head_index = NO_FOLLOWING_TRACK;
         return ERR_OK;
     }
 
@@ -178,10 +178,11 @@ ErrorCode create_straight_line(System *system, int num_tracks, size_t *head_inde
         current_index = new_index;
     }
     if (first_created_index >= 0) {
-        (*head_index) = first_created_index;
+        if(head_index) *head_index = first_created_index;
     }
     
-    log_message(LOG_INFO, "Created straight line of %d tracks starting at index %zu", num_tracks, *head_index);
+    log_message(LOG_INFO, "Created straight line of %d tracks starting at index %zu", 
+        num_tracks, first_created_index);
 
     return ERR_OK;
 }
@@ -197,10 +198,10 @@ int get_last_track(System *system, int start_index) {
     return current;
 }
 
-int get_next_track(System *system, int index) {
+int get_next_track(System *system, int start_index) {
 
     if (!system) return -1;
-    Track track = system->array[index];
+    Track track = system->array[start_index];
 
     /* Si es switch, mirar posición */
     if (track.type == SWITCH_TRACK) {
@@ -632,6 +633,7 @@ System* load_system_layout_from_file(const char* path, size_t *out_count){
         }
     }
     free(line);
+    fclose(f);
 
     return system_arr;
 }

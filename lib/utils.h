@@ -1,6 +1,6 @@
 #include "types.h"
 
-//generates the log mensages in the file /var/log/gestion_trenes.log, the format is [LEVEL] message
+//generates the log mensages in LOG_PATH, the format is [LEVEL] message
 void log_message(LogLevel level, const char *format, ...);
 
 //Creates a track in system with the params, if id is 0 will generate one automatically
@@ -21,8 +21,8 @@ void print_tracks_with_switches(System *system, int index);
 //Return the index of the last track connected counting from start_index
 int get_last_track(System *system, int start_index);
 
-//Returns the index of the next track from index
-int get_next_track(System *system, int index);
+//Returns the index of the next track from start_index
+int get_next_track(System *system, int start_index);
 
 //Counts recursively the tracks, including the branches, counting from branch_index
 int count_branch_tracks(System *system, int branch_index);
@@ -33,11 +33,8 @@ ErrorCode force_update_track_status(System *system, int track_index, Status new_
 //Updates all the system
 void update_system_status(System *system, int index);
 
-#ifdef DEBUG
-int tokens_to_track(System *system, Token *tokens, size_t token_count);
+//Loads the system layout from a file, returns an array of systems, and stores in out_count the number of systems loaded
 System *load_system_layout_from_file(const char *path, size_t *count);
-#endif
 
-
-//saves the layout to path
+//saves the actual layout described in system to path
 ErrorCode save_system_to_file(System *system, const char* path);

@@ -125,6 +125,9 @@ typedef struct System {
 //Init correctly the system struct
 ErrorCode init_system(System *sys, size_t initial_capacity);
 
+//Correctly free the system data
+void free_system(System *sys);
+
 //
 // 📦 STACK
 //

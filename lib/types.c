@@ -37,6 +37,16 @@ ErrorCode init_system(System *sys, size_t initial_capacity){
     return ERR_OK;
 
 }
+void free_system(System *sys){
+    int count = sys->count;
+    for (int i = 0; i < count; i++) {
+        free(sys->array[i].sensors);
+    }
+    free(sys->array);
+    sys->array = NULL;
+    sys->count = 0;
+    sys->buffer = 0;
+}
 
 void initialize_stack(SwitchStack *stack) {
     stack->top = -1;  
