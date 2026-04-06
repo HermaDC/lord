@@ -1,110 +1,117 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <stddef.h>
+#include <unistd.h>
+#include <time.h>
 
-#include "utils.h"
+#include "lib/config.h"
+#include "lib/utils.h"
+#include "lib/cli.h"
+#include "lib/types.h"
+#include "lib/parser.h"
 
-#define RED    "\x1b[31m"
-#define GREEN  "\x1b[32m"
-#define YELLOW "\x1b[33m"
-#define RESET  "\x1b[0m"
-
-
-/* ---------- Creación ---------- */
-
-
-/* ---------- Lógica ---------- */
-
-Track *get_next_track(Track *track) {
-
-    if (!track) return NULL;
-
-    /* Si es switch, mirar posición */
-    if (track->type == SWITCH_TRACK) {
-
-        Switch *sw = (Switch *)track;
-
-        if (sw->pos == DIVERGING_POS && sw->branch)
-            return sw->branch;
-    }
-
-    return track->next;
-}
-
-
-/* ---------- Print ---------- */
-
-void print_tracks_with_switches(Track *head) {
-    Track *current = head;
-
-    while (current != NULL) {
-
-        if (current->type == SWITCH_TRACK) {
-            Switch *sw = (Switch *)current;
-
-            // Contar tracks en la rama
-            int branch_count = count_branch_tracks(sw->branch);
-
-            if (sw->pos == STRAIGHT_POS)
-                printf("SW[→](%d) ", branch_count);
-            else
-                printf("SW[~](%d) ", branch_count);
-
-            // También podemos imprimir la rama recursivamente
-            if (sw->branch){
-                printf("{");
-                print_tracks_with_switches(sw->branch);
-                printf("} ");
-            }
-        } else {
-            // Track normal
-            switch (current->status) {
-                case CLEAR:   printf(GREEN "------ " RESET); break;
-                case OCCUPIED:printf(RED "------ " RESET); break;
-                case WARNING: printf(YELLOW "------ " RESET); break;
-            }
+int interactive_main_loop(void){
+    char *line = NULL;
+    size_t len = 0;
+    int status = 0;
+    printf("Entering interactive mode, version %s. \nType 'help' for commands, 'exit' to quit.\n", VERSION);
+    while(status == 0){
+        printf(">>> "); //prompt
+        if(getline(&line, &len, stdin) == -1) {
+            printf("Error reading input. Exiting interactive mode.\n");
+            free(line);
+            return -1;
         }
-
-        current = get_next_track(current);
+        line[strcspn(line, "\n")] = 0; //remove newline
+        if(strlen(line) < 1) continue;
+        //TODO: parse and execute command
+        if(strcmp(line, "exit") == 0) {
+            printf("Exiting interactive mode\n");
+            break;
+        }
+        if(strcmp(line, "help") == 0) {
+            printf("Nothing to show\n");
+            continue;
+        }
+        printf("Received command: %s\n", line);
     }
-
-    //printf("\n");
+    return 0;
 }
 
+/*
+TODO:
+    -h --help show help and exit
+    -i --interactive runs in interactive mode
+        print prints the actual layout
+        prints or print_simplified show the number of lines
+        update_system updates de whole system or only a line
+        list shows all the system that are currently running
+        help show all the list of command with a simple definition
+    -f --file the file for the initial layout
+    -c --command runs the command and exits
+*/ 
 
-/* ---------- Liberación ---------- */
+void msleep(int ms) {
+    struct timespec ts;
+    ts.tv_sec = ms / 1000;              // segundos
+    ts.tv_nsec = (ms % 1000) * 1000000; // nanosegundos
+    nanosleep(&ts, NULL);
+}
 
-
+System *systems;
+size_t count;
 
 /* ---------- MAIN ---------- */
 
-int main() {
-    // Initialize random seed once at program start
-    srand(1234); //For testing it sould return
-                 //0 2 0 0 1 0 1 2 2 1    
-    
-    Track *head = create_straight_line(5);
-    if (!head){ 
-        fprintf(stderr, "Error creating straight line\n"); 
-        return EXIT_FAILURE; 
-    } 
-    // Create a switch with a branch of 3 tracks 
-    Track *branch = create_straight_line(3); 
-    if (!branch) { 
-        fprintf(stderr, "Error creating branch\n"); 
-        free_tracks(head, NULL); return EXIT_FAILURE; } 
-    Switch *sw = insert_switch(head, head->next->next, NULL, branch); 
-    if (!sw) { 
-        fprintf(stderr, "Error inserting switch\n"); 
-        free_tracks(head, NULL); 
-        free_tracks(branch, NULL); 
-        return EXIT_FAILURE; } 
+int main(int argc, char *argv[]) {
+    srand(SEED);
+    CLIOptions opts = parse_args(argc, argv);
 
-    printf(get_last_track)
-        // Print the system layout 
-        printf("System Layout:\n"); 
-        print_tracks_with_switches(head); 
-        printf("\n");
-    
+    if (opts.help) {
+        print_help();
+        return 0;
+    }
+
+    if (opts.version) {
+        printf("Version: %s (%s)[GCC %s] on Linux\n", VERSION, __DATE__, __VERSION__);
+        return 0;
+    }
+
+    if (opts.verbose) {
+        printf("[DEBUG] Verbose mode activated\n");
+    }
+
+    if (opts.file) {
+        printf("Loaded file: %s\n", opts.file);
+        systems = load_system_layout_from_file(opts.file, &count);
+        printf("Loaded %zu systems from file\n", count);
+        save_system_to_file(&systems[0], "output_layout.txt");
+
+    }
+
+    if (opts.command) {
+        printf("Running: %s\n", opts.command);
+        //return 0;
+    }
+
+    if (opts.interactive) {
+        // loop interactivo aquí
+        int err = interactive_main_loop();
+        return err;
+
+    }
+
+    if (opts.update_time) {
+        while(1){
+            for(size_t i = 0; i < count; i++){
+                update_system_status(&systems[i], 0);
+            }
+            msleep(opts.update_time);
+        }
+    }
+
     return 0;
+    
 }
