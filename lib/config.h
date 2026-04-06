@@ -28,7 +28,7 @@ extern const struct Config CONFIG;
 #endif
 
 #ifndef REPO_URL
-#define REPO_URL "https://github.com"
+#define REPO_URL "https://github.com/HermaDC/lord"
 #endif
 
 #endif // CONFIG_H
