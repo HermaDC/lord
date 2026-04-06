@@ -1,9 +1,12 @@
 # debug and test files
 *debug*
 prueba*
+.vscode/
+*.log
 
 # temp folder for build
 build/*
+*.o
 
 # bak-up and config files
 *.bak

@@ -1,45 +1,79 @@
-# Compilador y flags
+# Compilador
 CC = gcc
-VERSION = 0.0.1
+VERSION = 0.0.2
 
-CFLAGS_ALL = -Wall -Werror -Wextra
-CFLAGS_DEBUG = $(CFLAGS_ALL) -g -Ilib -DDEBUG
-CFLAGS_RELEASE = $(CFLAGS_ALL) -O2 -Ilib -DVERSION=\"$(VERSION)\"
+# Flags
+CFLAGS_ALL = -Wall -Werror -Wextra -Ilib
+CFLAGS_DEBUG = $(CFLAGS_ALL) -g -DDEBUG
+CFLAGS_RELEASE = $(CFLAGS_ALL) -O2 -DVERSION=\"$(VERSION)\"
+
 LDFLAGS = -Llib
 
-
-# Archivos fuente
+# Fuentes
 SRC = main.c lib/parser.c lib/types.c lib/utils.c lib/cli.c
 
-# Carpeta para objetos
-BUILD_DIR = build
+# Carpetas de build separadas
+BUILD_DEBUG = build/debug
+BUILD_RELEASE = build/release
 
-# Objetos en build/ (manteniendo subcarpetas)
-OBJ = $(patsubst %.c,$(BUILD_DIR)/%.o,$(SRC))
+# Objetos
+OBJ_DEBUG = $(patsubst %.c,$(BUILD_DEBUG)/%.o,$(SRC))
+OBJ_RELEASE = $(patsubst %.c,$(BUILD_RELEASE)/%.o,$(SRC))
 
+# Binarios
 DATE = $(shell date +%Y-%m-%d--%H-%M-%S)
-# Ejecutables
-DEBUG = debug-$(DATE)
-RELEASE = dist/gestion_trenes_v$(VERSION)
+DEBUG_BIN = $(BUILD_DEBUG)/debug-$(DATE)
+RELEASE_BIN = dist/gestion_trenes_v$(VERSION)
 
-# Objetivo por defecto
-all: $(DEBUG) $(RELEASE)
+# Targets principales
+.PHONY: all debug release clean run-debug run-release
 
-debug: $(DEBUG)
+all: debug release
 
-# Crear carpetas necesarias para los objetos
-$(BUILD_DIR)/%.o: %.c
+debug: $(DEBUG_BIN)
+
+release: $(RELEASE_BIN)
+
+# ========================
+# Reglas de compilación
+# ========================
+
+# Objetos debug
+$(BUILD_DEBUG)/%.o: %.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS_DEBUG) -c $< -o $@
 
+# Objetos release
+$(BUILD_RELEASE)/%.o: %.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS_RELEASE) -c $< -o $@
+
+# ========================
+# Linkado
+# ========================
+
 # Debug
-$(DEBUG): $(OBJ)
-	$(CC) $(CFLAGS_DEBUG) -o $@ $(OBJ) $(LDFLAGS)
+$(DEBUG_BIN): $(OBJ_DEBUG)
+	$(CC) $(CFLAGS_DEBUG) -o $@ $(OBJ_DEBUG) $(LDFLAGS)
 
 # Release
-$(RELEASE): $(OBJ)
-	$(CC) $(CFLAGS_RELEASE) -o $@ $(OBJ) $(LDFLAGS)
+$(RELEASE_BIN): $(OBJ_RELEASE)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS_RELEASE) -o $@ $(OBJ_RELEASE) $(LDFLAGS)
 
-# Limpiar todo
+# ========================
+# Ejecutar
+# ========================
+
+run-debug: debug
+	./$(DEBUG_BIN)
+
+run-release: release
+	./$(RELEASE_BIN)
+
+# ========================
+# Limpieza
+# ========================
+
 clean:
-	rm -rf $(BUILD_DIR)  
+	rm -rf build
