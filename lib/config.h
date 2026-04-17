@@ -2,6 +2,7 @@
 #define CONFIG_H
 
 #include <stddef.h>
+#include <stdbool.h>
 
 struct Config {
     size_t MAX_STACK_AMOUNT;
