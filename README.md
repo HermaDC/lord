@@ -70,6 +70,23 @@ for(int i = 0; i < count; i++){
 }
 free(heads); //free the array of heads    
 ```
+## CLI
+
+The actual flags are:
+
+
+flag       | long flag        | description | arguments
+-----------|------------------|-------------|-----
+-f         | --file           | Load system layout from a file. The file format is the same as the output of the `save` command. | filename
+-c         | --command        | Execute a single command in non-interactive mode. The command format is the same as the commands in interactive mode. | command
+-i         | --interactive    | Enter interactive mode. In this mode, the user can enter commands to manage the system. On exit closes the program | none
+-u         | --update-time    | Set the update time in milliseconds for the system. This is used to simulate the passage of time in the system. | milliseconds
+-s         | --save           | Save the current system layout to files. Each system will be saved in a separate file named `system_<id>.txt`. The file format is the same as the input file.| none
+-v         | --verbose        | Enable verbose mode. This will print additional debug information to the console. | none
+
+For the list of commands refer to [docs/interactive.md](docs/interactive.md)
+
+> note: Interactive and update time cannot be run together.
 
 
 ## Contributing 
