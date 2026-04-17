@@ -12,6 +12,7 @@ CLIOptions parse_args(int argc, char *argv[]) {
     static struct option long_options[] = {
         {"help", no_argument, 0, 'h'},
         {"file", required_argument, 0, 'f'},
+        {"save", no_argument, 0, 's'},
         {"interactive", no_argument, 0, 'i'},
         {"version", no_argument, 0, 'v'},
         {"command", required_argument, 0, 'c'},
@@ -23,13 +24,16 @@ CLIOptions parse_args(int argc, char *argv[]) {
     int opt;
     int long_index = 0;
 
-    while ((opt = getopt_long(argc, argv, "hf:ivc:u:", long_options, &long_index)) != -1) {
+    while ((opt = getopt_long(argc, argv, "hf:sivc:u:", long_options, &long_index)) != -1) {
         switch (opt) {
             case 'h':
                 opts.help = 1;
                 break;
             case 'f':
                 opts.file = optarg;
+                break;
+            case 's':
+                opts.save = 1;
                 break;
             case 'i':
                 opts.interactive = 1;
@@ -53,7 +57,11 @@ CLIOptions parse_args(int argc, char *argv[]) {
                 print_help();
                 exit(1);
         }
+
     }
+        if(optind < argc){
+            opts.script = argv[optind];
+        }
 
     return opts;
 }
@@ -66,6 +74,7 @@ void print_help() {
     printf("  -v, --version           Shows version\n");
     printf("  -c, --command CMD       Runs CMD\n");
     printf("  -u, --update MS         Time in miliseconds between updates\n");
+    printf("  -s, --save              Save system layout to file\n");
     printf("      --verbose           Be more verbose\n");
     printf("Report bugs at %s/issues\n", REPO_URL);
 }
