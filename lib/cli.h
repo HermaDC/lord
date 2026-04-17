@@ -6,10 +6,12 @@ typedef struct {
     int interactive;
     int version;
     int verbose;
+    int save;
+    int update_time;
 
     char *file;
     char *command;
-    int update_time;
+    char *script;
 
 } CLIOptions;
 
