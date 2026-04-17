@@ -22,7 +22,7 @@ int generate_id(){
 }
 
 void log_message(LogLevel level, const char *format, ...){
-
+    if(level == LOG_DEBUG && !CONFIG.VERBOSE) return;
     const char *level_str;
     switch (level) {
         case LOG_ERROR:   level_str = "ERROR"; break;
