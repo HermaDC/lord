@@ -10,7 +10,7 @@ CFLAGS_RELEASE = $(CFLAGS_ALL) -O2 -DVERSION=\"$(VERSION)\"
 LDFLAGS = -Llib
 
 # Fuentes
-SRC = main.c lib/parser.c lib/types.c lib/utils.c lib/cli.c
+SRC = main.c lib/parser.c lib/types.c lib/utils.c lib/cli.c lib/interactive.c lib/linenoise-lib/linenoise.c
 
 # Carpetas de build separadas
 BUILD_DEBUG = build/debug
@@ -23,7 +23,7 @@ OBJ_RELEASE = $(patsubst %.c,$(BUILD_RELEASE)/%.o,$(SRC))
 # Binarios
 DATE = $(shell date +%Y-%m-%d--%H-%M-%S)
 DEBUG_BIN = $(BUILD_DEBUG)/debug-$(DATE)
-RELEASE_BIN = dist/gestion_trenes_v$(VERSION)
+RELEASE_BIN = dist/lord_v$(VERSION)
 
 # Targets principales
 .PHONY: all debug release clean run-debug run-release
