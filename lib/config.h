@@ -1,23 +1,22 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#include <stddef.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 struct Config {
     size_t MAX_STACK_AMOUNT;
     bool VERBOSE;
 };
 
-
 #ifdef DEBUG
-    #define SEED 1234
+#define SEED 1234
 #else
-    #define SEED time(NULL)
+#define SEED time(NULL)
 #endif
 
 #ifndef LOG_PATH
-    #define LOG_PATH "./gestion_trenes.log"
+#define LOG_PATH "./gestion_trenes.log"
 #endif
 
 #ifndef MAX_STACK_SIZE

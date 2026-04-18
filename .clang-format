@@ -1,0 +1,36 @@
+BasedOnStyle: LLVM
+
+# Indentación
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+
+# Límite de línea
+ColumnLimit: 90
+
+# Punteros a la derecha → int *ptr
+PointerAlignment: Right
+DerivePointerAlignment: false
+
+# Llaves en la misma línea
+BreakBeforeBraces: Attach
+
+# if(x) {} (sin espacio antes del paréntesis)
+SpaceBeforeParens: Never
+
+# Espacios en operadores
+SpaceBeforeAssignmentOperators: true
+
+# Parámetros: coma seguida de espacio → func(a, b, c)
+SpacesInParentheses: false
+SpacesInCStyleCastParentheses: false
+
+# Evita cosas raras tipo func(a ,b)
+SpaceAfterCStyleCast: true
+
+# Permitir bloques cortos en una línea
+AllowShortIfStatementsOnASingleLine: true
+AllowShortBlocksOnASingleLine: Always
+
+# Consistencia general
+Cpp11BracedListStyle: true
