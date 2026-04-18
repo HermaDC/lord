@@ -128,6 +128,14 @@ ErrorCode init_system(System *sys, size_t initial_capacity);
 //Correctly free the system data
 void free_system(System *sys);
 
+typedef struct {
+    System *systems;
+    size_t count;
+    struct Config global_config;
+} AppContext;
+
+extern AppContext app_context;
+
 //
 // 📦 STACK
 //
