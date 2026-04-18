@@ -11,34 +11,8 @@
 #include "lib/cli.h"
 #include "lib/types.h"
 #include "lib/parser.h"
+#include "lib/interactive.h"
 
-int interactive_main_loop(void){
-    char *line = NULL;
-    size_t len = 0;
-    int status = 0;
-    printf("Entering interactive mode, version %s. \nType 'help' for commands, 'exit' to quit.\n", VERSION);
-    while(status == 0){
-        printf(">>> "); //prompt
-        if(getline(&line, &len, stdin) == -1) {
-            printf("Error reading input. Exiting interactive mode.\n");
-            free(line);
-            return -1;
-        }
-        line[strcspn(line, "\n")] = 0; //remove newline
-        if(strlen(line) < 1) continue;
-        //TODO: parse and execute command
-        if(strcmp(line, "exit") == 0) {
-            printf("Exiting interactive mode\n");
-            break;
-        }
-        if(strcmp(line, "help") == 0) {
-            printf("Nothing to show\n");
-            continue;
-        }
-        printf("Received command: %s\n", line);
-    }
-    return 0;
-}
 
 /*
 TODO:
@@ -60,8 +34,25 @@ void msleep(int ms) {
     nanosleep(&ts, NULL);
 }
 
-System *systems;
-size_t count;
+
+AppContext app_context = {
+    .count = 0, 
+    .systems = NULL, 
+    .global_config = {
+        .MAX_STACK_AMOUNT = MAX_STACK_SIZE,
+        .VERBOSE = false
+    }
+};
+
+void cleanup(AppContext context) {
+    if(!context.systems) return;
+    for (size_t i = 0; i < context.count; i++) {
+        free_system(&context.systems[i]);
+    }
+    free(context.systems);
+    context.systems = NULL;
+    context.count = 0;
+}
 
 /* ---------- MAIN ---------- */
 
@@ -81,13 +72,13 @@ int main(int argc, char *argv[]) {
 
     if (opts.verbose) {
         printf("[DEBUG] Verbose mode activated\n");
+        app_context.global_config.VERBOSE = true;
     }
 
     if (opts.file) {
         printf("Loaded file: %s\n", opts.file);
-        systems = load_system_layout_from_file(opts.file, &count);
-        printf("Loaded %zu systems from file\n", count);
-        save_system_to_file(&systems[0], "output_layout.txt");
+        app_context.systems = load_system_layout_from_file(opts.file, &app_context.count);
+        printf("Loaded %zu systems from file\n", app_context.count);
 
     }
 
@@ -97,21 +88,49 @@ int main(int argc, char *argv[]) {
     }
 
     if (opts.interactive) {
+        if(opts.update_time){
+            fprintf(stderr, "Update time set and interactive too\n aborting...");
+            return 3;
+        }
         // loop interactivo aquí
         int err = interactive_main_loop();
+        cleanup(app_context);
         return err;
 
     }
 
     if (opts.update_time) {
+        if(opts.interactive){
+            fprintf(stderr, "Update time set and interactive too\nAborting...");
+            return 3;
+        }
         while(1){
-            for(size_t i = 0; i < count; i++){
-                update_system_status(&systems[i], 0);
+        if(opts.update_time){
+            fprintf(stderr, "Update time set and interactive too\n aborting...");
+            return 3;
+        }
+        // loop interactivo aquí
+        int err = interactive_main_loop();
+        return err;
+
+    
+            for(size_t i = 0; i < app_context.count; i++){
+                update_system_status(&app_context.systems[i], 0);
             }
             msleep(opts.update_time);
         }
     }
-
+    if (opts.save) {
+        for(size_t i = 0; i < app_context.count; i++){
+            char filename[256];
+            snprintf(filename, sizeof(filename), "system_%zu.txt", i);
+            save_system_to_file(&app_context.systems[i], filename);
+        }
+    }
+    if (opts.script){
+        printf("script %s", opts.script);
+    }
+    cleanup(app_context);
     return 0;
     
 }
