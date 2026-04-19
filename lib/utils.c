@@ -10,8 +10,6 @@
 #include "parser.h"
 #include "utils.h"
 
-// TODO: Finish the implementation of the file loading
-// TODO: Implement the saving of the system layout to a file
 // TODO: use a define instead of hardcoding the -1 for "no track"
 
 #define TOKEN_FOR_FILE " ,;"
@@ -316,7 +314,6 @@ int count_branch_tracks(System *system, int branch_index) {
     return count;
 }
 
-// TODO use the enum for errors
 ErrorCode read_sensor_data(Sensor *sensor) {
     if(!sensor) return ERR_NULL_PTR; // Error: NULL sensor
     // TODO: Implement the real data
@@ -393,15 +390,49 @@ int update_track_status(System *system, int track_index) {
 // NOT CHECKED, use with care
 // TODO if red warning previous
 ErrorCode force_update_track_status(System *system, int track_index, Status new_status) {
-    if(!system) return ERR_NULL_PTR;
-    if(track_index < -1 || track_index >= system->count) return ERR_INVALID_ARG;
+    if(!system || track_index < 0 || track_index >= system->count) return -1;
+    Track *track = &system->array[track_index];
+    Sensor *sensor = track->sensors;
 
-    system->array[track_index].status = new_status;
+    /* Determine the logical "previous" track according to travel direction.
+       If direction is NEXT, the previous track is `prev`.
+       If direction is PREV, the previous track is `next` (opposite links).
+    */
+    int prev_in_dir_index = (track->dir == NEXT) ? track->prev_index : track->next_index;
+    Track *prev_in_dir_track = NULL;
+    if(prev_in_dir_index >= 0 && prev_in_dir_index < system->count){
+        prev_in_dir_track = &system->array[prev_in_dir_index];
+    }
 
-    log_message(LOG_INFO, "Force updated track index %d to status %d", track_index,
-                new_status);
+    switch (new_status) {
+        case CLEAR:
+            track->status = CLEAR;
+            return 0;
+        case OCCUPIED:
+            track->status = OCCUPIED;
+            if(prev_in_dir_track && prev_in_dir_track->status != OCCUPIED)
+                // The previous track in travel direction should be WARNING
+                prev_in_dir_track->status = WARNING;
 
-    return ERR_OK;
+            return 1;
+
+        case WARNING:
+            track->status = WARNING;
+            return 0;
+
+        default:
+            track->status = OCCUPIED;
+
+            if(prev_in_dir_track && prev_in_dir_track->status != OCCUPIED)
+                prev_in_dir_track->status = WARNING;
+
+            log_message(
+                LOG_WARNING,
+                "Unknown sensor state %d for track index %d, setting status to OCCUPIED",
+                sensor->actual_state, track_index);
+            return -1; // Unknown state
+    }
+    log_message(LOG_INFO, "Forced update of track index %d to status %d", track_index, new_status);
 }
 
 void update_system_status(System *system, int index) {
