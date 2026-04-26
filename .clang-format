@@ -5,6 +5,14 @@ IndentWidth: 4
 TabWidth: 4
 UseTab: Never
 
+#ordenar include alfabeticamente
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex: '^<.*>'
+    Priority: 1
+  - Regex: '^".*"'
+    Priority: 2
+
 # Límite de línea
 ColumnLimit: 90
 
