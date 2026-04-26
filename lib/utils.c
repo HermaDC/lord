@@ -400,39 +400,40 @@ ErrorCode force_update_track_status(System *system, int track_index, Status new_
     */
     int prev_in_dir_index = (track->dir == NEXT) ? track->prev_index : track->next_index;
     Track *prev_in_dir_track = NULL;
-    if(prev_in_dir_index >= 0 && prev_in_dir_index < system->count){
+    if(prev_in_dir_index >= 0 && prev_in_dir_index < system->count) {
         prev_in_dir_track = &system->array[prev_in_dir_index];
     }
 
-    switch (new_status) {
-        case CLEAR:
-            track->status = CLEAR;
-            return 0;
-        case OCCUPIED:
-            track->status = OCCUPIED;
-            if(prev_in_dir_track && prev_in_dir_track->status != OCCUPIED)
-                // The previous track in travel direction should be WARNING
-                prev_in_dir_track->status = WARNING;
+    switch(new_status) {
+    case CLEAR:
+        track->status = CLEAR;
+        return 0;
+    case OCCUPIED:
+        track->status = OCCUPIED;
+        if(prev_in_dir_track && prev_in_dir_track->status != OCCUPIED)
+            // The previous track in travel direction should be WARNING
+            prev_in_dir_track->status = WARNING;
 
-            return 1;
+        return 1;
 
-        case WARNING:
-            track->status = WARNING;
-            return 0;
+    case WARNING:
+        track->status = WARNING;
+        return 0;
 
-        default:
-            track->status = OCCUPIED;
+    default:
+        track->status = OCCUPIED;
 
-            if(prev_in_dir_track && prev_in_dir_track->status != OCCUPIED)
-                prev_in_dir_track->status = WARNING;
+        if(prev_in_dir_track && prev_in_dir_track->status != OCCUPIED)
+            prev_in_dir_track->status = WARNING;
 
-            log_message(
-                LOG_WARNING,
-                "Unknown sensor state %d for track index %d, setting status to OCCUPIED",
-                sensor->actual_state, track_index);
-            return -1; // Unknown state
+        log_message(
+            LOG_WARNING,
+            "Unknown sensor state %d for track index %d, setting status to OCCUPIED",
+            sensor->actual_state, track_index);
+        return -1; // Unknown state
     }
-    log_message(LOG_INFO, "Forced update of track index %d to status %d", track_index, new_status);
+    log_message(LOG_INFO, "Forced update of track index %d to status %d", track_index,
+                new_status);
 }
 
 void update_system_status(System *system, int index) {
