@@ -1,20 +1,27 @@
+#include "interactive.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
 #include "config.h"
-#include "interactive.h"
+#include "linenoise-lib/linenoise.h"
 #include "types.h"
 #include "utils.h"
-
-#include "linenoise-lib/linenoise.h"
 
 #define TOKEN_CHUNK 64
 
 // TODO add enum for for command exit status
+// TODO add script option
+typedef struct {
+    char *msg;
+    int invalid_arg_index;
+    CmdErrorCode code;
+    char *arg_value;
+} CommandError;
 
-typedef int (*command_func)(char **args);
+typedef CommandError (*command_func)(char **args);
 
 typedef struct {
     const char *name;
@@ -24,6 +31,11 @@ typedef struct {
     const char *usage;
     const char *desc;
 } Command;
+
+typedef struct {
+    char *name[256];
+    char *value[256];
+} Variable;
 
 static char **parse_input(char *input) {
     if(!input) return NULL;
@@ -55,6 +67,9 @@ static char **parse_input(char *input) {
     return tokens;
 }
 
+// expands variables
+// static char **expand_args(){}
+
 static inline int count_args(char **args) {
     int i = 0;
     while(args[i])
@@ -62,12 +77,13 @@ static inline int count_args(char **args) {
     return i;
 }
 
-CmdErrorCode command_show_help(char **args);
-CmdErrorCode command_list_systems(char **args);
-CmdErrorCode command_print_system(char **args);
-CmdErrorCode command_save_system(char **args);
-CmdErrorCode command_update_system(char **args);
-CmdErrorCode command_clear_screen(char **args);
+CommandError command_show_help(char **args);
+CommandError command_list_systems(char **args);
+CommandError command_print_system(char **args);
+CommandError command_save_system(char **args);
+CommandError command_update_system(char **args);
+CommandError command_clear_screen(char **args);
+CommandError command_set_var(char **args);
 
 static const Command commands[] = {
     {"help", command_show_help, 0, NULL, "help", "Show this help"},
@@ -76,10 +92,14 @@ static const Command commands[] = {
     {"save", command_save_system, 2, " <id> <name>", "save <id> <name>", "Save a system"},
     {"update", command_update_system, 1, " <id>", "update <id>", "Update a system"},
     {"clear", command_clear_screen, 0, NULL, "clear", "Clear the screen"},
+    {"set", command_set_var, 2, " <var> <value>", "set <var> <value>",
+     "Set a variable (not implemented)"},
     {NULL, NULL, 0, NULL, NULL, NULL}};
 
-static int execute_command(char **args) {
-    if(!args || !args[0]) return -1;
+static CommandError execute_command(char **args) {
+    if(!args || !args[0])
+        return (CommandError){
+            .code = CMD_ERR_INVALID_ARG, .msg = NULL, .invalid_arg_index = -1};
 
     int argc = count_args(args) - 1;
 
@@ -87,21 +107,27 @@ static int execute_command(char **args) {
         if(strcmp(args[0], commands[i].name) == 0) {
 
             if(argc < commands[i].min_args) {
-                fprintf(stderr, "Command '%s' needs %d args, got %d\n", commands[i].name,
-                        commands[i].min_args, argc);
-                return -1;
+                return (CommandError){
+                    .code = CMD_ERR_TOO_FEW_ARGS, .msg = NULL, .invalid_arg_index = argc};
             }
 
             return commands[i].func(args);
         }
     }
-
-    fprintf(stderr, "Unknown command: «%s». Try «help» to get a list of commands\n",
-            args[0]);
-    return -1;
+    return (CommandError){
+        .code = CMD_ERR_UNKNOWN_CMD, .msg = NULL, .invalid_arg_index = -1};
 }
 
-CmdErrorCode command_show_help(char **args) {
+void show_error(CommandError err, char **args) {
+    if(!args) return;
+    CmdErrorCode err_code = err.code;
+    // int arg_error = err.invalid_arg_index;
+    // int pos_err=0;
+    fprintf(stderr, RED "Error: " RESET "%s\n", cmderror_to_str(err_code));
+    if(err.msg) fprintf(stderr, "%s\n", err.msg);
+}
+
+CommandError command_show_help(char **args) {
     (void) args;
 
     printf("Available commands:\n");
@@ -111,80 +137,108 @@ CmdErrorCode command_show_help(char **args) {
     }
     printf("  %-15s - %s\n", "exit", "Exits the interactive session");
 
-    return 0;
+    return (CommandError){
+        .code = CMD_ERR_OK, .msg = NULL, .invalid_arg_index = -1, .arg_value = NULL};
 }
 
-CmdErrorCode command_list_systems(char **args) {
+CommandError command_list_systems(char **args) {
     (void) args;
     if(app_context.count == 0) {
         printf("No systems loaded\n");
-        return CMD_ERR_OK;
+        return (CommandError){
+            .code = CMD_ERR_OK, .msg = NULL, .invalid_arg_index = -1, .arg_value = NULL};
     }
     for(size_t i = 0; i < app_context.count; i++) {
         printf("System %zu: count %d\n", i, app_context.systems[i].count);
     }
-    return CMD_ERR_OK;
+    return (CommandError){
+        .code = CMD_ERR_OK, .msg = NULL, .invalid_arg_index = -1, .arg_value = NULL};
 }
 
-CmdErrorCode command_print_system(char **args) {
+CommandError command_print_system(char **args) {
     char *endptr;
     int id = (int) strtol(args[1], &endptr, 10);
     if(*endptr != '\0') {
-        fprintf(stderr, "Invalid system id: %s\n", args[1]);
-        return CMD_ERR_INVALID_ARG;
+        return (CommandError){.code = CMD_ERR_INVALID_ARG,
+                              .msg = "invalid system id",
+                              .invalid_arg_index = 1,
+                              .arg_value = args[1]};
     }
     if(id < 0 || id >= (int) app_context.count) {
-        fprintf(stderr, "Invalid system id: %d. Maximum is %d\n", id,
-                (int) app_context.count - 1);
-        return CMD_ERR_INVALID_ARG;
+        return (CommandError){.code = CMD_ERR_OUT_OF_BOUNDS,
+                              .msg = "invalid system id",
+                              .invalid_arg_index = 1,
+                              .arg_value = args[1]};
     }
     print_tracks_with_switches(&app_context.systems[id], 0);
     printf("\n");
-    return CMD_ERR_OK;
+    return (CommandError){
+        .code = CMD_ERR_OK, .msg = NULL, .invalid_arg_index = -1, .arg_value = NULL};
 }
 
-CmdErrorCode command_save_system(char **args) {
+CommandError command_save_system(char **args) {
     printf("Saving system: %s\n", args[1]);
     char *endptr;
     int id = (int) strtol(args[1], &endptr, 10);
     if(*endptr != '\0') {
-        fprintf(stderr, "Invalid system id: %s\n", args[1]);
-        return CMD_ERR_INVALID_ARG;
+        return (CommandError){.code = CMD_ERR_INVALID_ARG,
+                              .msg = NULL,
+                              .invalid_arg_index = 1,
+                              .arg_value = args[1]};
     }
     if(id < 0 || id >= (int) app_context.count) {
-        fprintf(stderr, "Invalid system id: %d. Maximum is %d\n", id,
-                (int) app_context.count - 1);
-        return CMD_ERR_INVALID_ARG;
+        return (CommandError){.code = CMD_ERR_OUT_OF_BOUNDS,
+                              .msg = "Invalid system id",
+                              .invalid_arg_index = 1,
+                              .arg_value = args[1]};
     }
     ErrorCode err = save_system_to_file(&app_context.systems[id], args[2]);
     if(err != ERR_OK) {
         fprintf(stderr, "Failed to save system: %s\n", args[1]);
-        return CMD_ERR_OK;
+        return (CommandError){
+            .code = CMD_ERR_OK, .msg = NULL, .invalid_arg_index = -1, .arg_value = NULL};
     }
-    return CMD_ERR_OK;
-}
-CmdErrorCode command_clear_screen(char **args) {
-    (void) args;
-    linenoiseClearScreen();
-    return CMD_ERR_OK;
+    return (CommandError){
+        .code = CMD_ERR_OK, .msg = NULL, .invalid_arg_index = -1, .arg_value = NULL};
 }
 
-CmdErrorCode command_update_system(char **args) {
+CommandError command_clear_screen(char **args) {
+    (void) args;
+    linenoiseClearScreen();
+    return (CommandError){.code = CMD_ERR_OK, .msg = NULL, .invalid_arg_index = -1};
+}
+
+CommandError command_update_system(char **args) {
     char *endptr;
     int id = (int) strtol(args[1], &endptr, 10);
     if(*endptr != '\0') {
-        fprintf(stderr, "Invalid system id: %s\n", args[1]);
-        return CMD_ERR_INVALID_ARG;
+        return (CommandError){.code = CMD_ERR_INVALID_ARG,
+                              .msg = "Invalid system id",
+                              .invalid_arg_index = 1,
+                              .arg_value = args[1]};
     }
     if(id < 0 || id >= (int) app_context.count) {
-        fprintf(stderr, "Invalid system id: %d. Maximum is %d\n", id,
-                (int) app_context.count - 1);
-        return CMD_ERR_INVALID_ARG;
+        return (CommandError){.code = CMD_ERR_OUT_OF_BOUNDS,
+                              .msg = "invalid system id",
+                              .invalid_arg_index = 1,
+                              .arg_value = args[1]};
     }
     update_system_status(&app_context.systems[id], 0);
-    return 0;
+    return (CommandError){
+        .code = CMD_ERR_OK, .msg = NULL, .invalid_arg_index = -1, .arg_value = NULL};
 }
 
+CommandError command_set_var(char **args) {
+    if(count_args(args) < 2) {
+        return (CommandError){.code = CMD_ERR_TOO_FEW_ARGS,
+                              .msg = NULL,
+                              .invalid_arg_index = count_args(args)};
+    }
+    // TODO implement this command
+    printf("Setting variable %s to %s\n", args[1], args[2]);
+    return (CommandError){
+        .code = CMD_ERR_OK, .msg = NULL, .invalid_arg_index = -1, .arg_value = NULL};
+}
 // TODO make a loop or a proper tree of predictions
 void completion(const char *buf, linenoiseCompletions *lc) {
     for(size_t i = 0; commands[i].name != NULL; i++) {
@@ -211,6 +265,7 @@ char *hints(const char *buf, int *color,
 
 void free_hints(void *hint) { free(hint); }
 
+// returns 0 if ok, 1 if error, 2 if not TTY
 int interactive_main_loop(void) {
     if(!isatty(STDIN_FILENO)) {
         fprintf(stderr, "Input must be interactive\n");
@@ -240,15 +295,25 @@ int interactive_main_loop(void) {
             continue;
         }
         linenoiseHistoryAdd(line);
+        char *original_input = strdup(line);
         char **args = parse_input(line);
         if(strcmp(args[0], "exit") == 0 || strcmp(args[0], "quit") == 0 ||
            strcmp(args[0], "q") == 0) {
             free(args);
+            free(original_input);
             linenoiseFree(line);
             break;
         }
-        execute_command(args);
+        CommandError err = execute_command(args);
+        if(err.code != CMD_ERR_OK) {
+            // TODO use a pretty syntax highlighter
+            // TODO add more info about the error like the argument index or a message
+            // fprintf(stderr, "Error: Command execution failed with code %d\n", err);
+            fprintf(stderr, "An error occur while executing '%s'\n", original_input);
+            show_error(err, args);
+        }
         linenoiseFree(line);
+        free(original_input);
 
         free(args);
         line = linenoise(">>> ");
