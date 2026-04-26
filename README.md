@@ -1,5 +1,5 @@
 
-# gestion-trenes
+# LORD
 
 A small C project to model and manage a simple railway system (tracks, switches and sensors) for learning and testing purposes.
 
@@ -28,8 +28,8 @@ Clone the repository and build a release or debug binary:
 
 ```bash
 git clone https://github.com/HermaDC/lord
-cd gestion-trenes
-make release       # builds dist/gestion_trenes_v0.0.1
+cd lord
+make release       # builds dist/lord_v0.0.1
 # or
 make debug         # builds debug-datetime
 ```
@@ -37,7 +37,7 @@ make debug         # builds debug-datetime
 Run the release or debug binary:
 
 ```bash
-./dist/gestion_trenes_v0.0.1    # release
+./dist/lord_v0.0.1    # release
 ./debug-date--time              # debug
 ```
 
@@ -86,7 +86,19 @@ flag       | long flag        | description | arguments
 
 For the list of commands refer to [docs/interactive.md](docs/interactive.md)
 
-> note: Interactive and update time cannot be run together.
+> note: Interactive and update time cannot be run together, returns exit code 1.
+
+## Exit codes
+
+    Code | Description
+    -----|-------------
+    0    | Success
+    1    | General error (e.g., invalid arguments)
+    2    | error in interactive/scripting mode or with --command
+    3    | error loading or saving layout from/to file
+
+> Many of this errors will be written in the log file with a description of the error.
+
 
 
 ## Contributing 
