@@ -8,13 +8,16 @@ Thank you for considering contributing to this project! We welcome contributions
 - Use descriptive variable and function names.
 - Comment complex logic and functions with clear explanations.
 - Keep functions focused and concise (ideally < 50 lines).
-- Only use one-liners for return statements or simple conditionals .
+- Only use one-liners for return statements or simple conditionals.
 - Braces should be on the same line as the function or control statement.
 - Pointers should be declared with the type (e.g. `Track *ptr` not `Track* ptr`).
 - Use `snake_case` for function and variable names, and `UPPER_SNAKE_CASE` for constants and enums.
 - Use spaces around operators and after commas for readability.
 - Only use goto for error handling and cleanup, not for general control flow.
 - Includes should be ordered: standard library headers first, then project headers in alphabetical order.
+- Avoid global variables when possible; use a context struct if needed.
+- Avoid returning numbers to indicate success or failure; use `bool` or an enum instead.
+- Always put to NULL a freed pointer to avoid dangling pointers.
 
 Example:
 ```c
@@ -28,5 +31,7 @@ void update_track_status(Track *track) {
     if (track->type == SWITCH && track->branch) {
         update_track_status(track->branch);
     }
+    free(track);
+    track = NULL; // Avoid dangling pointer
 }
 ```
