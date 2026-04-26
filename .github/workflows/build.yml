@@ -1,0 +1,43 @@
+name: Release from tag
+
+on:
+  push:
+    tags:
+      - "*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # get tag as version
+      - name: Get version from tag
+        id: version
+        run: |
+          echo "VERSION=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+
+      # built with version
+      - name: Build with Makefile
+        run: |
+          make clean
+          make CFLAGS="VERSION=\"${VERSION}\""
+
+      # Create zip
+      - name: Create zip
+        run: |
+          zip -r release.zip . -x "*.git*" -x "release.zip"
+
+      # create release and uploads
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ env.VERSION }}
+          tag_name: ${{ env.VERSION }}
+          files: release.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
