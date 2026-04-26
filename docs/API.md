@@ -1,8 +1,8 @@
-# API Reference — gestion-trenes 
+# API Reference — LORD
 
 ## Overview
 
-This document describes the public structures and functions of the `gestion-trenes` (C) project. It includes function signatures, parameter descriptions, return values, usage examples, and a troubleshooting section focused on possible core dumps and how to debug them.
+This document describes the public structures and functions of the LORD project. It includes function signatures, parameter descriptions, return values, usage examples, and a troubleshooting section focused on possible core dumps and how to debug them.
 
 ---
 
@@ -46,7 +46,7 @@ This document describes the public structures and functions of the `gestion-tren
   - Represents the type of token.
 
 - `typedef struct {int value; TokenType type; size_t column;} Token;`
-  - The token structure, holds the type value and the column of the string where the token cames from.
+  - The token structure, holds the type value and the column of the string where the token came from.
 
 - `typedef struct {int help; int interactive; int version; int verbose; char *file; char *command; int update_time;} CLIOptions;`
   - Stores the options of the CLI, used for parsing the arguments and printing the help.

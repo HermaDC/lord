@@ -16,7 +16,7 @@ struct Config {
 #endif
 
 #ifndef LOG_PATH
-#define LOG_PATH "./gestion_trenes.log"
+#define LOG_PATH "./lord.log"
 #endif
 
 #ifndef MAX_STACK_SIZE
