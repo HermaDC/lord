@@ -1,43 +1,90 @@
-name: Release from tag
+name: Build & Release
 
 on:
   push:
+    branches:
+      - ci-test
     tags:
       - "*"
 
 jobs:
-  release:
+  build:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      # get tag as version
-      - name: Get version from tag
-        id: version
+      - name: Set version
         run: |
-          echo "VERSION=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            echo "VERSION=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+          else
+            echo "VERSION=dev-${GITHUB_SHA::7}" >> $GITHUB_ENV
+          fi
 
-      # built with version
-      - name: Build with Makefile
+      - name: Install toolchains
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc-aarch64-linux-gnu \
+            gcc-arm-linux-gnueabihf \
+            make \
+            tar
+
+      - name: Build binaries
         run: |
           make clean
-          make CFLAGS="VERSION=\"${VERSION}\""
 
-      # Create zip
-      - name: Create zip
+          # AMD64
+          make release VERSION=${VERSION} CC=gcc
+          cp dist/lord lord-linux-amd64
+
+          # ARM64
+          make clean
+          make release VERSION=${VERSION} CC=aarch64-linux-gnu-gcc
+          cp dist/lord lord-linux-arm64
+
+          # ARMv7
+          make clean
+          make release VERSION=${VERSION} CC=arm-linux-gnueabihf-gcc
+          cp dist/lord lord-linux-armv7
+
+      - name: Package tar.gz
         run: |
-          zip -r release.zip . -x "*.git*" -x "release.zip"
+          mkdir dist-pack
 
-      # create release and uploads
+          package () {
+            ARCH=$1
+            BIN=$2
+
+            mkdir -p pkg/lord-${VERSION}
+            cp ${BIN} pkg/lord-${VERSION}/lord
+            cp README.md pkg/lord-${VERSION}/
+            [ -f LICENSE ] && cp LICENSE pkg/lord-${VERSION}/
+
+            tar -czf dist-pack/lord-${ARCH}.tar.gz -C pkg lord-${VERSION}
+            tar -czf dist-pack/lord-${VERSION}-${ARCH}.tar.gz -C pkg lord-${VERSION}
+            rm -rf pkg
+          }
+
+          package linux-amd64 lord-linux-amd64
+          package linux-arm64 lord-linux-arm64
+          package linux-armv7 lord-linux-armv7
+
+      - name: Upload artifacts (test mode)
+        if: github.ref_type == 'branch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: lord-builds
+          path: dist-pack/
+
       - name: Create GitHub Release
+        if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
           name: ${{ env.VERSION }}
           tag_name: ${{ env.VERSION }}
-          files: release.zip
+          files: dist-pack/*.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
