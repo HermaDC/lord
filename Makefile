@@ -1,79 +1,77 @@
 # Compilador
-CC = gcc
-VERSION = 0.0.3-alpha
+CC ?= gcc
+
+# Versión
+VERSION ?= dev
 
 # Flags
-CFLAGS_ALL = -Wall -Werror -Wextra -Ilib
-CFLAGS_DEBUG = $(CFLAGS_ALL) -g -DDEBUG
-CFLAGS_RELEASE = $(CFLAGS_ALL) -O2 -DVERSION=\"$(VERSION)\"
+CFLAGS_COMMON = -Wall -Wextra -Werror -Ilib
+CFLAGS_DEBUG = $(CFLAGS_COMMON) -g -DDEBUG
+CFLAGS_RELEASE = $(CFLAGS_COMMON) -O2 -DVERSION=\"$(VERSION)\"
 
 LDFLAGS = -Llib
 
-# Fuentes
-SRC = main.c lib/parser.c lib/types.c lib/utils.c lib/cli.c lib/interactive.c lib/linenoise-lib/linenoise.c
+# Nombre del binario
+BIN_NAME = lord
 
-# Carpetas de build separadas
-BUILD_DEBUG = build/debug
-BUILD_RELEASE = build/release
+# Fuentes
+SRC = main.c \
+      lib/parser.c lib/types.c lib/utils.c \
+      lib/cli.c lib/interactive.c \
+      lib/linenoise-lib/linenoise.c
+
+# Directorios
+BUILD_DIR = build
+DIST_DIR = dist
+
+BUILD_DEBUG = $(BUILD_DIR)/debug
+BUILD_RELEASE = $(BUILD_DIR)/release
 
 # Objetos
 OBJ_DEBUG = $(patsubst %.c,$(BUILD_DEBUG)/%.o,$(SRC))
 OBJ_RELEASE = $(patsubst %.c,$(BUILD_RELEASE)/%.o,$(SRC))
 
 # Binarios
-DATE = $(shell date +%Y-%m-%d--%H-%M-%S)
-DEBUG_BIN = $(BUILD_DEBUG)/debug-$(DATE)
-RELEASE_BIN = dist/lord_v$(VERSION)
+DEBUG_BIN = $(BUILD_DEBUG)/$(BIN_NAME)-debug
+RELEASE_BIN = $(DIST_DIR)/$(BIN_NAME)
 
-# Targets principales
-.PHONY: all debug release clean run-debug run-release
+# Instalación
+PREFIX ?= /usr/local
+BINDIR = $(PREFIX)/bin
 
-all: debug release
+.PHONY: all debug release clean install uninstall
 
+all: release
+
+# Debug
 debug: $(DEBUG_BIN)
 
-release: $(RELEASE_BIN)
-
-# ========================
-# Reglas de compilación
-# ========================
-
-# Objetos debug
 $(BUILD_DEBUG)/%.o: %.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS_DEBUG) -c $< -o $@
 
-# Objetos release
+$(DEBUG_BIN): $(OBJ_DEBUG)
+	$(CC) $(CFLAGS_DEBUG) -o $@ $^ $(LDFLAGS)
+
+# Release
+release: $(RELEASE_BIN)
+
 $(BUILD_RELEASE)/%.o: %.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS_RELEASE) -c $< -o $@
 
-# ========================
-# Linkado
-# ========================
-
-# Debug
-$(DEBUG_BIN): $(OBJ_DEBUG)
-	$(CC) $(CFLAGS_DEBUG) -o $@ $(OBJ_DEBUG) $(LDFLAGS)
-
-# Release
 $(RELEASE_BIN): $(OBJ_RELEASE)
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS_RELEASE) -o $@ $(OBJ_RELEASE) $(LDFLAGS)
+	$(CC) $(CFLAGS_RELEASE) -o $@ $^ $(LDFLAGS)
 
-# ========================
-# Ejecutar
-# ========================
+# Install
+install: release
+	install -d $(BINDIR)
+	install -m 755 $(RELEASE_BIN) $(BINDIR)/$(BIN_NAME)
 
-run-debug: debug
-	./$(DEBUG_BIN)
+uninstall:
+	rm -f $(BINDIR)/$(BIN_NAME)
 
-run-release: release
-	./$(RELEASE_BIN)
-
-# ========================
-# Limpieza
-# ========================
-
+# Clean
 clean:
-	rm -rf build
+	rm -rf $(BUILD_DIR) $(DIST_DIR)
