@@ -1333,11 +1333,12 @@ char *linenoiseEditFeed(struct linenoiseState *l) {
      * there was an error reading from fd. Otherwise it will return the
      * character that should be handled next. */
     if ((l->in_completion || c == 9) && completionCallback != NULL) {
-        c = completeLine(l,c);
+        int ch = completeLine(l,c);
         /* Return on errors */
-        if (c < 0) return NULL;
+        if (ch < 0) return NULL;
         /* Read next character when 0 */
-        if (c == 0) return linenoiseEditMore;
+        if (ch == 0) return linenoiseEditMore;
+        c = (char)ch; // avoids lossing negative numbers in arm due to conversions 
     }
 
     switch(c) {
