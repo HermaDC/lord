@@ -105,14 +105,13 @@ CommandError command_save_system(char **args);
 CommandError command_update_system(char **args);
 CommandError command_clear_screen(char **args);
 CommandError command_set_var(char **args);
-CommandError command_print(char **args);
+CommandError command_echo(char **args);
 
 static const Command commands[] = {
     {"help", command_show_help, 0, NULL, "help", "Show this help"},
     {"list", command_list_systems, 0, NULL, "list", "List all systems"},
     {"print", command_print_system, 1, " <id>", "print <id>", "Print a system"},
-    {"printf", command_print, 1, " <args...>", "print <args...>",
-     "Print arguments with variable expansion"},
+    {"echo", command_echo, 1, " <args...>", "echo <args...>",     "Print arguments with variable expansion"},
     {"save", command_save_system, 2, " <id> <name>", "save <id> <name>", "Save a system"},
     {"update", command_update_system, 1, " <id>", "update <id>", "Update a system"},
     {"clear", command_clear_screen, 0, NULL, "clear", "Clear the screen"},
@@ -284,7 +283,7 @@ CommandError command_set_var(char **args) {
     }
 }
 
-CommandError command_print(char **args) {
+CommandError command_echo(char **args) {
     if(count_args(args) < 1) {
         return (CommandError){.code = CMD_ERR_TOO_FEW_ARGS,
                               .msg = NULL,
