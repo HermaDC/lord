@@ -33,9 +33,17 @@ typedef struct {
 } Command;
 
 typedef struct {
-    char *name[256];
-    char *value[256];
+    char *name;
+    char *value;
 } Variable;
+
+typedef struct {
+    Variable var_arr[100]; // TODO make this dynamic
+    size_t var_count;
+    size_t buf;
+} VariableContext;
+
+VariableContext var_context;
 
 static char **parse_input(char *input) {
     if(!input) return NULL;
@@ -53,10 +61,7 @@ static char **parse_input(char *input) {
         if(count >= capacity) {
             capacity += TOKEN_CHUNK;
             tokens = realloc(tokens, capacity * sizeof(char *));
-            if(!tokens) {
-                perror("realloc");
-                exit(EXIT_FAILURE);
-            }
+            if(!tokens) { return NULL; }
         }
 
         tokens[count++] = token;
@@ -68,7 +73,23 @@ static char **parse_input(char *input) {
 }
 
 // expands variables
-// static char **expand_args(){}
+static char **expand_args(char **args) {
+    if(!args) return NULL;
+    for(size_t i = 0; args[i] != NULL; i++) {
+        if(args[i][0] == '$') {
+            char *var_name = args[i] + 1;
+            char *var_value = NULL;
+            for(size_t j = 0; j < var_context.var_count; j++) {
+                if(strcmp(var_context.var_arr[j].name, var_name) == 0) {
+                    var_value = var_context.var_arr[j].value;
+                    break;
+                }
+            }
+            if(var_value) { args[i] = var_value; }
+        }
+    }
+    return args;
+}
 
 static inline int count_args(char **args) {
     int i = 0;
@@ -84,11 +105,14 @@ CommandError command_save_system(char **args);
 CommandError command_update_system(char **args);
 CommandError command_clear_screen(char **args);
 CommandError command_set_var(char **args);
+CommandError command_print(char **args);
 
 static const Command commands[] = {
     {"help", command_show_help, 0, NULL, "help", "Show this help"},
     {"list", command_list_systems, 0, NULL, "list", "List all systems"},
     {"print", command_print_system, 1, " <id>", "print <id>", "Print a system"},
+    {"printf", command_print, 1, " <args...>", "print <args...>",
+     "Print arguments with variable expansion"},
     {"save", command_save_system, 2, " <id> <name>", "save <id> <name>", "Save a system"},
     {"update", command_update_system, 1, " <id>", "update <id>", "Update a system"},
     {"clear", command_clear_screen, 0, NULL, "clear", "Clear the screen"},
@@ -205,7 +229,8 @@ CommandError command_save_system(char **args) {
 CommandError command_clear_screen(char **args) {
     (void) args;
     linenoiseClearScreen();
-    return (CommandError){.code = CMD_ERR_OK, .msg = NULL, .invalid_arg_index = -1};
+    return (CommandError){
+        .code = CMD_ERR_OK, .msg = NULL, .invalid_arg_index = -1, .arg_value = NULL};
 }
 
 CommandError command_update_system(char **args) {
@@ -234,11 +259,61 @@ CommandError command_set_var(char **args) {
                               .msg = NULL,
                               .invalid_arg_index = count_args(args)};
     }
-    // TODO implement this command
-    printf("Setting variable %s to %s\n", args[1], args[2]);
+    for(size_t i = 0; i < var_context.var_count; i++) {
+        if(strcmp(var_context.var_arr[i].name, args[1]) == 0) { // falla?
+            free(var_context.var_arr[i].value);
+            var_context.var_arr[i].value = strdup(args[2]);
+            return (CommandError){.code = CMD_ERR_OK,
+                                  .msg = NULL,
+                                  .invalid_arg_index = -1,
+                                  .arg_value = NULL};
+        }
+    }
+    if(var_context.var_count < 100) {
+        size_t index = var_context.var_count++;
+        var_context.var_arr[index].name = strdup(args[1]);
+        var_context.var_arr[index].value = strdup(args[2]);
+        return (CommandError){
+            .code = CMD_ERR_OK, .msg = NULL, .invalid_arg_index = -1, .arg_value = NULL};
+
+    } else {
+        return (CommandError){.code = CMD_ERR_OOM,
+                              .msg = "Too much variables defined",
+                              .invalid_arg_index = -1,
+                              .arg_value = NULL};
+    }
+}
+
+CommandError command_print(char **args) {
+    if(count_args(args) < 1) {
+        return (CommandError){.code = CMD_ERR_TOO_FEW_ARGS,
+                              .msg = NULL,
+                              .invalid_arg_index = count_args(args)};
+    }
+    for(size_t i = 1; args[i] != NULL; i++) {
+        if(args[i][0] == '$') {
+            // TODO variable expansion
+            char *var_name = args[i] + 1;
+            char *var_value = NULL;
+            for(size_t j = 0; j < var_context.var_count; j++) {
+                if(strcmp(var_context.var_arr[j].name, var_name) == 0) {
+                    var_value = var_context.var_arr[j].value;
+                    break;
+                }
+            }
+            if(var_value) {
+                printf("%s ", var_value);
+            } else {
+                printf("%s ", args[i]);
+            }
+        } else
+            printf("%s ", args[i]);
+    }
+    printf("\n");
     return (CommandError){
         .code = CMD_ERR_OK, .msg = NULL, .invalid_arg_index = -1, .arg_value = NULL};
 }
+
 // TODO make a loop or a proper tree of predictions
 void completion(const char *buf, linenoiseCompletions *lc) {
     for(size_t i = 0; commands[i].name != NULL; i++) {
@@ -297,6 +372,7 @@ int interactive_main_loop(void) {
         linenoiseHistoryAdd(line);
         char *original_input = strdup(line);
         char **args = parse_input(line);
+        args = expand_args(args);
         if(strcmp(args[0], "exit") == 0 || strcmp(args[0], "quit") == 0 ||
            strcmp(args[0], "q") == 0) {
             free(args);
