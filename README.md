@@ -21,6 +21,16 @@ A small C project to model and manage a simple railway system (tracks, switches 
 - make
 
 ---
+## Installing
+
+to install follow this steps
+
+```bash
+curl -O https://raw.githubusercontent.com/HermaDC/lord/refs/heads/main/install.sh
+sh install.sh # launch the installing wizard, it will ask you for the version to install and if you want to install the docs
+./lord-x.x.x/lord --version # to check if the installation was successful
+```
+You can also install the docs when the wizard ask you.
 
 ## Build & Run 
 
@@ -29,7 +39,7 @@ Clone the repository and build a release or debug binary:
 ```bash
 git clone https://github.com/HermaDC/lord
 cd lord
-make release       # builds dist/lord_v0.0.1
+make release       # builds dist/lord_vx.x.x
 # or
 make debug         # builds debug-datetime
 ```
@@ -37,11 +47,9 @@ make debug         # builds debug-datetime
 Run the release or debug binary:
 
 ```bash
-./dist/lord_v0.0.1    # release
-./debug-date--time              # debug
+./dist/lord_vx.x.x            # release
+./build/debug/lor_debug       # debug
 ```
-
-> Note: Use `make run-release` or `make run-debug` to build and run in one step.
 
 ---
 
