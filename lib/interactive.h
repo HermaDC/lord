@@ -34,3 +34,6 @@ static inline char* cmderror_to_str(CmdErrorCode err){
 
 int interactive_main_loop(void);
 
+int run_script_file(FILE *file);
+
+int run_command_cli(char *command);

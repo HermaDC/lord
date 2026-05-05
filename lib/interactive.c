@@ -449,3 +449,31 @@ on_exit:
     }
     return return_value;
 }
+
+int run_command_cli(char *command) {
+    if(!command) return 1;
+    char *original_input = strdup(command);
+    char **args = parse_input(command);
+    args = expand_args(args);
+    CommandError err = execute_command(args);
+    if(err.code != CMD_ERR_OK) {
+        fprintf(stderr, "An error occurred while executing '%s'\n",
+                original_input);
+        show_error(err, args);
+        free(args);
+        free(original_input);
+        for (size_t i =0; i < var_context.var_count; i++) {
+        free(var_context.var_arr[i].name);
+        free(var_context.var_arr[i].value);
+    }
+    
+        return 1;
+    }
+    free(args);
+    free(original_input);
+    for (size_t i =0; i < var_context.var_count; i++) {
+        free(var_context.var_arr[i].name);
+        free(var_context.var_arr[i].value);
+    }
+    return 0;
+}
