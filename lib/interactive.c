@@ -368,6 +368,7 @@ int interactive_main_loop(void) {
             line = linenoise(">>> ");
             continue;
         }
+
         linenoiseHistoryAdd(line);
         char *original_input = strdup(line);
         char **args = parse_input(line);
@@ -379,6 +380,7 @@ int interactive_main_loop(void) {
             linenoiseFree(line);
             break;
         }
+
         CommandError err = execute_command(args);
         if(err.code != CMD_ERR_OK) {
             fprintf(stderr, "An error occurred while executing '%s'\n", original_input);
@@ -393,36 +395,57 @@ int interactive_main_loop(void) {
 
     if(strlen(history_path)) linenoiseHistorySave(history_path);
 
+    // Free vars created in the session
+    for(size_t i = 0; i < var_context.var_count; i++) {
+        free(var_context.var_arr[i].name);
+        free(var_context.var_arr[i].value);
+    }
     return 0;
 }
 
 int run_script_file(FILE *file) {
     if(!file) return 1;
+    int return_value = 1;
     char *line_str = NULL;
     size_t n = 0;
     int line = 1;
+
+    char *original_input = NULL;
+    char **args = NULL;
+
     while(getline(&line_str, &n, file) != -1) {
         line_str[strcspn(line_str, "\r\n")] = 0; // remove newline
         if(strlen(line_str) == 0) { continue; }
-        char *original_input = strdup(line_str);
-        char **args = parse_input(line_str);
+        original_input = strdup(line_str);
+        args = parse_input(line_str);
         args = expand_args(args);
         if(strcmp(args[0], "exit") == 0 || strcmp(args[0], "quit") == 0 ||
            strcmp(args[0], "q") == 0) {
-            // TODO should return the exit code of exit
-            free(args);
-            free(original_input);
-            free(line_str);
-            return 0;
+            return_value = args[1] ? atoi(args[1]) : 0;
+            goto on_exit;
         }
+
         CommandError err = execute_command(args);
         if(err.code != CMD_ERR_OK) {
             fprintf(stderr, "An error occurred while executing '%s' at line %d\n",
                     original_input, line);
             show_error(err, args);
-            return 1;
+            return_value = 1;
+            goto on_exit;
         }
+        free(original_input);
+        free(args);
         line++;
     }
     return 0;
+
+on_exit:
+    if(args) free(args);
+    if(original_input) free(original_input);
+    if(line_str) free(line_str);
+    for(size_t i = 0; i < var_context.var_count; i++) {
+        free(var_context.var_arr[i].name);
+        free(var_context.var_arr[i].value);
+    }
+    return return_value;
 }
