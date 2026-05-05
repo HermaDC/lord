@@ -12,8 +12,8 @@
 
 #define TOKEN_CHUNK 64
 
-// TODO add enum for for command exit status
-// TODO add script option
+// TODO add enum for for command exit status, already done
+// TODO add script option, already done
 typedef struct {
     char *msg;
     int invalid_arg_index;
@@ -111,12 +111,12 @@ static const Command commands[] = {
     {"help", command_show_help, 0, NULL, "help", "Show this help"},
     {"list", command_list_systems, 0, NULL, "list", "List all systems"},
     {"print", command_print_system, 1, " <id>", "print <id>", "Print a system"},
-    {"echo", command_echo, 1, " <args...>", "echo <args...>",     "Print arguments with variable expansion"},
+    {"echo", command_echo, 1, " <args...>", "echo <args...>",
+     "Print arguments with variable expansion"},
     {"save", command_save_system, 2, " <id> <name>", "save <id> <name>", "Save a system"},
     {"update", command_update_system, 1, " <id>", "update <id>", "Update a system"},
     {"clear", command_clear_screen, 0, NULL, "clear", "Clear the screen"},
-    {"set", command_set_var, 2, " <var> <value>", "set <var> <value>",
-     "Set a variable (not implemented)"},
+    {"set", command_set_var, 2, " <var> <value>", "set <var> <value>", "Set a variable"},
     {NULL, NULL, 0, NULL, NULL, NULL}};
 
 static CommandError execute_command(char **args) {
@@ -339,11 +339,11 @@ char *hints(const char *buf, int *color,
 
 void free_hints(void *hint) { free(hint); }
 
-// returns 0 if ok, 1 if error, 2 if not TTY
+// returns 0 if ok, 1 if error
 int interactive_main_loop(void) {
     if(!isatty(STDIN_FILENO)) {
-        fprintf(stderr, "Input must be interactive\n");
-        return 2;
+        int err = run_script_file(stdin);
+        return err;
     }
 
     printf("Welcome to LORD v%s\nType 'help' for commands\n", VERSION);
@@ -381,10 +381,7 @@ int interactive_main_loop(void) {
         }
         CommandError err = execute_command(args);
         if(err.code != CMD_ERR_OK) {
-            // TODO use a pretty syntax highlighter
-            // TODO add more info about the error like the argument index or a message
-            // fprintf(stderr, "Error: Command execution failed with code %d\n", err);
-            fprintf(stderr, "An error occur while executing '%s'\n", original_input);
+            fprintf(stderr, "An error occurred while executing '%s'\n", original_input);
             show_error(err, args);
         }
         linenoiseFree(line);
@@ -396,5 +393,36 @@ int interactive_main_loop(void) {
 
     if(strlen(history_path)) linenoiseHistorySave(history_path);
 
+    return 0;
+}
+
+int run_script_file(FILE *file) {
+    if(!file) return 1;
+    char *line_str = NULL;
+    size_t n = 0;
+    int line = 1;
+    while(getline(&line_str, &n, file) != -1) {
+        line_str[strcspn(line_str, "\r\n")] = 0; // remove newline
+        if(strlen(line_str) == 0) { continue; }
+        char *original_input = strdup(line_str);
+        char **args = parse_input(line_str);
+        args = expand_args(args);
+        if(strcmp(args[0], "exit") == 0 || strcmp(args[0], "quit") == 0 ||
+           strcmp(args[0], "q") == 0) {
+            // TODO should return the exit code of exit
+            free(args);
+            free(original_input);
+            free(line_str);
+            return 0;
+        }
+        CommandError err = execute_command(args);
+        if(err.code != CMD_ERR_OK) {
+            fprintf(stderr, "An error occurred while executing '%s' at line %d\n",
+                    original_input, line);
+            show_error(err, args);
+            return 1;
+        }
+        line++;
+    }
     return 0;
 }
