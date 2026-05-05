@@ -1,11 +1,12 @@
 // parser.c
+#include "parser.h"
+
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "config.h"
-#include "parser.h"
 
 #define IS_TOK_DELIMITER(c) (isspace(c) || c == ',' || c == ';')
 

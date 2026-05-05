@@ -1,9 +1,10 @@
 // types.c
+#include "types.h"
+
 #include <stdbool.h>
 #include <stdio.h>
 
 #include "config.h"
-#include "types.h"
 
 const char *error_to_string(ErrorCode err) {
     switch(err) {

@@ -17,8 +17,9 @@ BIN_NAME = lord
 # Fuentes
 SRC = main.c \
       lib/parser.c lib/types.c lib/utils.c \
-      lib/cli.c lib/interactive.c \
-      lib/linenoise-lib/linenoise.c
+      lib/cli.c lib/interactive.c
+LIB_SRC = lib/linenoise-lib/linenoise.c
+ALL_SRC = $(SRC) $(LIB_SRC)
 
 # Directorios
 BUILD_DIR = build
@@ -28,8 +29,8 @@ BUILD_DEBUG = $(BUILD_DIR)/debug
 BUILD_RELEASE = $(BUILD_DIR)/release
 
 # Objetos
-OBJ_DEBUG = $(patsubst %.c,$(BUILD_DEBUG)/%.o,$(SRC))
-OBJ_RELEASE = $(patsubst %.c,$(BUILD_RELEASE)/%.o,$(SRC))
+OBJ_DEBUG = $(patsubst %.c,$(BUILD_DEBUG)/%.o,$(ALL_SRC))
+OBJ_RELEASE = $(patsubst %.c,$(BUILD_RELEASE)/%.o,$(ALL_SRC))
 
 # Binarios
 DEBUG_BIN = $(BUILD_DEBUG)/$(BIN_NAME)-debug
@@ -72,6 +73,8 @@ install: release
 uninstall:
 	rm -f $(BINDIR)/$(BIN_NAME)
 
+format:
+	clang-format -i $(SRC)
 # Clean
 clean:
 	rm -rf $(BUILD_DIR) $(DIST_DIR)

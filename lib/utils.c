@@ -1,3 +1,5 @@
+#include "utils.h"
+
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -8,7 +10,6 @@
 
 #include "config.h"
 #include "parser.h"
-#include "utils.h"
 
 // TODO: use a define instead of hardcoding the -1 for "no track"
 
