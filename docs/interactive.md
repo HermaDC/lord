@@ -20,6 +20,14 @@ Saves the system with the given id to a file with the given name. The format is 
 
 Updates the system with the given id.
 
+## set \<var> \<value>
+
+Sets a variable to a value. Then variable can be used in the commands with the syntax `$var`. For example, if you set `set id 0`, you can use `print $id` to print the system with id 0. This is useful to avoid typing the id multiple times.
+
+### clear
+
+Clears the screen
+
 ### help
 
 Shows all available commands
