@@ -1,4 +1,5 @@
 #include "lexer.h"
+
 #include <ctype.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -18,7 +19,7 @@ static inline int init_tokenizator(Tokenizator *tk) {
     tk->buffer = 32;
     tk->count = 0;
     tk->token_arr = malloc(tk->buffer * sizeof(Token));
-    if (!tk->token_arr) {
+    if(!tk->token_arr) {
         tk->buffer = 0;
         tk->count = 0;
         return 1;
@@ -26,18 +27,21 @@ static inline int init_tokenizator(Tokenizator *tk) {
     return 0;
 }
 static bool is_blank_line(const char *line) {
-    while (*line == ' ' || *line == '\t')
+    while(*line == ' ' || *line == '\t')
         line++;
 
     return *line == '\n' || *line == '\0';
 }
 void free_tokenizator(Tokenizator *tk) {
-    for (size_t i = 0; i < tk->count; i++) {
+    for(size_t i = 0; i < tk->count; i++) {
         enum TokenType actual_type = tk->token_arr[i].type;
-        switch (actual_type) {
+        switch(actual_type) {
         case TOKEN_IDENTIFIER:
-        case TOKEN_NUMBER: free(tk->token_arr[i].lexeme); break;
-        default: break;
+        case TOKEN_NUMBER:
+            free(tk->token_arr[i].lexeme);
+            break;
+        default:
+            break;
         }
     }
     tk->buffer = 0;
@@ -46,21 +50,19 @@ void free_tokenizator(Tokenizator *tk) {
 }
 
 static inline int push_token(Tokenizator *tk, const Token tok) {
-    if (tk->count >= tk->buffer) {
+    if(tk->count >= tk->buffer) {
         tk->buffer *= 2;
         Token *temp_tokens = realloc(tk->token_arr, tk->buffer * sizeof(Token));
-        if (!temp_tokens) {
-            return 1;
-        }
+        if(!temp_tokens) { return 1; }
         tk->token_arr = temp_tokens;
     }
     tk->token_arr[tk->count++] = tok;
     return 0;
 }
 
-void print_tokens(const Token *t, size_t count) {
-    for (size_t i = 0; i < count; i++) {
-        if (t[i].lexeme)
+static void print_tokens(const Token *t, size_t count) {
+    for(size_t i = 0; i < count; i++) {
+        if(t[i].lexeme)
             printf("Token: %s; Value %s\n", token_type_to_str(t[i].type), t[i].lexeme);
         else
             printf("Token: %s\n", token_type_to_str(t[i].type));
@@ -68,52 +70,51 @@ void print_tokens(const Token *t, size_t count) {
 }
 
 size_t indent_stack[MAX_INDENTS];
-int indent_top = 0;
+size_t indent_top = 0;
 
 static inline int get_indent(const char *line) {
     int i = 0;
-    while (line[i] == ' ')
+    while(line[i] == ' ')
         i++;
     return i;
 }
 
 void tokenize_line(const char *line, const int line_num, Tokenizator *tk) {
     int i = 0;
-    bool dot = false;
     bool in_str = false;
 
-    if (is_blank_line(line)) {
+    if(is_blank_line(line)) {
         push_token(tk, (Token){TOKEN_NEWLINE, NULL, 0, line_num});
         return;
     }
 
     // check for identattion
-    int indent = get_indent(line);
-    if (indent > indent_stack[indent_top]) {
+    size_t indent = get_indent(line);
+    if(indent > indent_stack[indent_top]) {
         indent_stack[++indent_top] = indent;
 
         push_token(tk, (Token){TOKEN_INDENT, NULL, 0, line_num});
     } else {
-        while (indent < indent_stack[indent_top]) {
+        while(indent < indent_stack[indent_top]) {
             indent_top--;
 
             push_token(tk, (Token){TOKEN_DEDENT, NULL, 0, line_num});
         }
 
-        if (indent != indent_stack[indent_top]) {
+        if(indent != indent_stack[indent_top]) {
             fprintf(stderr, "Indentation error\n");
             return;
         }
     }
-    while (line[i]) {
-        if (in_str && line[i] != '"') {
+    while(line[i]) {
+        if(in_str && line[i] != '"') {
             i++;
             continue;
         }
-        if (is_digit(line[i])) {
+        if(is_digit(line[i])) {
             int start = i;
 
-            while (is_digit(line[i]) || line[i] == '.')
+            while(is_digit(line[i]) || line[i] == '.')
                 i++;
 
             int len = i - start;
@@ -125,30 +126,30 @@ void tokenize_line(const char *line, const int line_num, Tokenizator *tk) {
             // i--
             continue;
         }
-        if (isalpha(line[i])) {
+        if(isalpha(line[i])) {
             size_t start = i;
-            while (isalpha(line[i]) || is_digit(line[i]))
+            while(isalpha(line[i]) || is_digit(line[i]))
                 i++;
             size_t len = i - start;
             char *lexeme = malloc(len + 1);
             strncpy(lexeme, &line[start], len);
             lexeme[len] = 0;
             // TODO: transfor this in a table search
-            if (strcmp(lexeme, "False") == 0) {
+            if(strcmp(lexeme, "False") == 0) {
                 push_token(tk, (Token){TOKEN_FALSE_LITERAL, NULL, start, line_num});
                 free(lexeme);
                 continue;
-            } else if (strcmp(lexeme, "True") == 0) {
+            } else if(strcmp(lexeme, "True") == 0) {
                 push_token(tk, (Token){TOKEN_TRUE_LITERAL, NULL, start, line_num});
                 free(lexeme);
                 continue;
-            } else if (strcmp(lexeme, "if") == 0) {
+            } else if(strcmp(lexeme, "if") == 0) {
                 push_token(tk, (Token){TOKEN_IF, NULL, start, line_num});
                 continue;
-            } else if (strcmp(lexeme, "else") == 0) {
+            } else if(strcmp(lexeme, "else") == 0) {
                 push_token(tk, (Token){TOKEN_ELSE, NULL, start, line_num});
                 continue;
-            } else if (strcmp(lexeme, "while") == 0) {
+            } else if(strcmp(lexeme, "while") == 0) {
                 push_token(tk, (Token){TOKEN_WHILE, NULL, start, line_num});
                 continue;
             }
@@ -157,26 +158,42 @@ void tokenize_line(const char *line, const int line_num, Tokenizator *tk) {
             continue;
         }
 
-        switch (line[i]) {
-        case '\n': push_token(tk, (Token){TOKEN_NEWLINE, NULL, i, line_num}); break;
-        case '"': in_str = !in_str; break;
-        case '+': push_token(tk, (Token){TOKEN_PLUS, NULL, i, line_num}); break;
-        case '-': push_token(tk, (Token){TOKEN_MINUS, NULL, i, line_num}); break;
-        case '*': push_token(tk, (Token){TOKEN_STAR, NULL, i, line_num}); break;
-        case '/': push_token(tk, (Token){TOKEN_SLASH, NULL, i, line_num}); break;
+        switch(line[i]) {
+        case '\n':
+            push_token(tk, (Token){TOKEN_NEWLINE, NULL, i, line_num});
+            break;
+        case '"':
+            in_str = !in_str;
+            break;
+        case '+':
+            push_token(tk, (Token){TOKEN_PLUS, NULL, i, line_num});
+            break;
+        case '-':
+            push_token(tk, (Token){TOKEN_MINUS, NULL, i, line_num});
+            break;
+        case '*':
+            push_token(tk, (Token){TOKEN_STAR, NULL, i, line_num});
+            break;
+        case '/':
+            push_token(tk, (Token){TOKEN_SLASH, NULL, i, line_num});
+            break;
         case '=':
-            if (line[i + 1] == '=') {
+            if(line[i + 1] == '=') {
                 push_token(tk, (Token){TOKEN_EQUAL, NULL, i, line_num});
                 i++;
                 break;
             }
             push_token(tk, (Token){TOKEN_ASSIGN, NULL, i, line_num});
             break;
-        case '(': push_token(tk, (Token){TOKEN_LEFT_PAREN, NULL, i, line_num}); break;
-        case ')': push_token(tk, (Token){TOKEN_RIGHT_PAREN, NULL, i, line_num}); break;
+        case '(':
+            push_token(tk, (Token){TOKEN_LEFT_PAREN, NULL, i, line_num});
+            break;
+        case ')':
+            push_token(tk, (Token){TOKEN_RIGHT_PAREN, NULL, i, line_num});
+            break;
 
         case '<':
-            if (line[i + 1] == '=') {
+            if(line[i + 1] == '=') {
                 push_token(tk, (Token){TOKEN_LESS_EQUAL, NULL, i, line_num});
                 i++;
                 break;
@@ -184,7 +201,7 @@ void tokenize_line(const char *line, const int line_num, Tokenizator *tk) {
             push_token(tk, (Token){TOKEN_LESS, NULL, i, line_num});
             break;
         case '>':
-            if (line[i + 1] == '=') {
+            if(line[i + 1] == '=') {
                 push_token(tk, (Token){TOKEN_GREATER_EQUAL, NULL, i, line_num});
                 i++;
                 break;
@@ -193,7 +210,7 @@ void tokenize_line(const char *line, const int line_num, Tokenizator *tk) {
             break;
 
         case '!':
-            if (line[i + 1] == '=') {
+            if(line[i + 1] == '=') {
                 push_token(tk, (Token){TOKEN_NOT_EQUAL, NULL, i, line_num});
                 i++;
                 break;
@@ -201,8 +218,11 @@ void tokenize_line(const char *line, const int line_num, Tokenizator *tk) {
                 printf("Unknow use of token '!'");
                 break;
             }
-        case ':': push_token(tk, (Token){TOKEN_COLON, NULL, i, line_num}); break;
-        case '#': return;
+        case ':':
+            push_token(tk, (Token){TOKEN_COLON, NULL, i, line_num});
+            break;
+        case '#':
+            return;
         }
         i++;
     }
@@ -211,17 +231,15 @@ void tokenize_line(const char *line, const int line_num, Tokenizator *tk) {
 LexerResult tokenize_file(FILE *f) {
     LexerResult result = {0};
 
-    if (!f)
-        return result;
+    if(!f) return result;
 
     Tokenizator tk;
-    if (init_tokenizator(&tk))
-        return result;
+    if(init_tokenizator(&tk)) return result;
 
     size_t lines_capacity = 128;
 
     result.lines = malloc(lines_capacity * sizeof(char *));
-    if (!result.lines) {
+    if(!result.lines) {
         free_tokenizator(&tk);
         return result;
     }
@@ -230,16 +248,16 @@ LexerResult tokenize_file(FILE *f) {
     size_t n = 0;
     int line_num = 0;
 
-    while (getline(&line, &n, f) != -1) {
+    while(getline(&line, &n, f) != -1) {
 
         tokenize_line(line, line_num, &tk);
 
-        if (result.line_count >= lines_capacity) {
+        if(result.line_count >= lines_capacity) {
             lines_capacity *= 2;
 
             char **tmp = realloc(result.lines, lines_capacity * sizeof(char *));
 
-            if (!tmp) {
+            if(!tmp) {
                 free(line);
                 free_tokenizator(&tk);
                 return result;
@@ -253,7 +271,7 @@ LexerResult tokenize_file(FILE *f) {
         line_num++;
     }
 
-    while (indent_top > 0) {
+    while(indent_top > 0) {
         indent_top--;
 
         push_token(&tk, (Token){TOKEN_DEDENT, NULL, 0, line_num});

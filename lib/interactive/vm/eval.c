@@ -1,36 +1,11 @@
+#include "eval.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "../parser/lexer.h"
 #include "../parser/parser.h"
-
-typedef enum {
-    VALUE_NUMBER,
-    VALUE_BOOL,
-    VALUE_STR,
-    VALUE_NONE,
-} ValueType;
-
-typedef struct {
-    union {
-        double number_value;
-        char bool_value;
-    } data;
-    ValueType type;
-} Value;
-
-typedef struct {
-    char *name;
-    Value value;
-} Variable;
-
-typedef Value (*vm_func_call)(ASTNode *arg);
-struct call_options {
-    char *name;
-    int min_args;
-    vm_func_call func;
-};
 
 static Value make_none(void) {
     Value v;
@@ -94,7 +69,7 @@ static void eval_statement(ASTNode *node);
 static Value eval_expression(ASTNode *node);
 static Value eval_function_call(ASTNode *node);
 
-static Value vm_print(ASTNode *arg) {
+Value vm_print(ASTNode *arg) {
     if(arg) {
         Value result = eval_expression(arg);
         print_value(result);
@@ -105,22 +80,19 @@ static Value vm_print(ASTNode *arg) {
     return make_none();
 }
 
-static Value vm_foo(ASTNode *arg) {
+Value vm_foo(ASTNode *arg) {
     (void) arg;
     printf("FOO\n");
     return make_none();
 }
 
-static Value vm_exit(ASTNode *arg) {
+Value vm_exit(ASTNode *arg) {
     if(arg) {
         Value result = eval_expression(arg);
         exit((int) value_to_number(result));
     }
     exit(0);
 }
-
-static struct call_options funcs[] = {
-    {"print", 1, vm_print}, {"foo", 0, vm_foo}, {"exit", 0, vm_exit}};
 
 static Variable variables[250] = {0};
 static size_t variable_count = 0;
@@ -263,6 +235,9 @@ Value eval_binary(ASTNode *node) {
         return make_none();
     }
 }
+
+struct call_options funcs[] = {
+    {"print", 1, vm_print}, {"foo", 0, vm_foo}, {"exit", 0, vm_exit}};
 
 Value eval_function_call(ASTNode *node) {
     for(size_t i = 0; i < sizeof(funcs) / sizeof(funcs[0]); i++) {

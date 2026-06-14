@@ -96,4 +96,3 @@ static inline const char *token_type_to_str(enum TokenType type) {
 }
 
 LexerResult tokenize_file(FILE *f);
-void print_tokens(const Token *tk, size_t count);
