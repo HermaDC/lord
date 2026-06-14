@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "../linenoise-lib/linenoise.h"
 #include "parser/lexer.h"
 #include "parser/parser.h"
 #include "vm/eval.h"
@@ -18,7 +19,7 @@ int run_script_file(FILE *f) {
 }
 
 int run_command_line(const char *line) {
-    size_t size = strlen(line) - 1;
+    size_t size = strlen(line);
     char *buffer = strdup(line);
     FILE *f = fmemopen(buffer, size, "r");
     LexerResult res = tokenize_file(f);
@@ -32,4 +33,12 @@ int run_command_line(const char *line) {
     eval_ast(root);
     return 0;
     free(buffer);
+}
+
+int run_interactive_loop(void) {
+    while(1) {
+        char *line = linenoise(">>> ");
+        run_command_line(line);
+    }
+    return 0;
 }
