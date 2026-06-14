@@ -1,5 +1,5 @@
 // parser.c
-#include "parser.h"
+#include "layout_parser.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -29,7 +29,7 @@ static int push_token(Token **tokens, size_t *count, size_t *capacity, TokenType
     return 1;
 }
 
-void print_error_at(const char *input, size_t column) {
+static void print_error_at(const char *input, size_t column) {
     fprintf(stderr, "%s\n", input);
 
     for(size_t i = 0; i < column; i++)
@@ -38,7 +38,7 @@ void print_error_at(const char *input, size_t column) {
     fprintf(stderr, RED "^\n" RESET);
 }
 
-Token *tokenize(const char *str, size_t *num_tokens, TokenizeError *error_code) {
+Token *tokenize_layout(const char *str, size_t *num_tokens, TokenizeError *error_code) {
     size_t buffer_size = 1;
     *num_tokens = 0;
 
@@ -110,7 +110,7 @@ error:
     return NULL;
 }
 
-void print_tokens(Token *tokens_arr, size_t count) {
+void print_layout_config_tokens(Token *tokens_arr, size_t count) {
     for(size_t i = 0; i < count; i++) {
         if(tokens_arr[i].type == NUMBER) {
             printf("NUM: %d\n", tokens_arr[i].value);
@@ -125,8 +125,8 @@ void print_tokens(Token *tokens_arr, size_t count) {
 }
 
 // TODO use the erorcode
-int check_syntax(Token *tokens_arr, char *original_str, size_t count,
-                 TokenizeError *error_code) {
+int check_syntax_layout_config(Token *tokens_arr, char *original_str, size_t count,
+                               TokenizeError *error_code) {
     if(count == 0) {
         *error_code = TOKENIZE_OK;
         return 0;
@@ -217,9 +217,9 @@ int check_syntax(Token *tokens_arr, char *original_str, size_t count,
                 return -1;
             }
         }
-        if(balance > MAX_STACK_SIZE) {
+        if((size_t) balance > global_config.MAX_STACK_AMOUNT) {
             fprintf(stderr,
-                    RED "Syntax Error: " RESET "To many switches stacked.\n"
+                    RED "Syntax Error: " RESET "Too many switches stacked.\n"
                         "Column: %zu\n",
                     tokens_arr[i].column);
             *error_code = TOKENIZE_SWITCH_STACK_OVERFLOW;

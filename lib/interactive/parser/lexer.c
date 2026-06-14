@@ -60,7 +60,7 @@ static inline int push_token(Tokenizator *tk, const Token tok) {
     return 0;
 }
 
-static void print_tokens(const Token *t, size_t count) {
+void print_tokens(const Token *t, size_t count) {
     for(size_t i = 0; i < count; i++) {
         if(t[i].lexeme)
             printf("Token: %s; Value %s\n", token_type_to_str(t[i].type), t[i].lexeme);
@@ -283,6 +283,10 @@ LexerResult tokenize_file(FILE *f) {
 
     result.tokens = tk.token_arr;
     result.token_count = tk.count;
+
+#ifdef DEBUG
+    print_tokens(tk.token_arr, tk.count);
+#endif
 
     return result;
 }

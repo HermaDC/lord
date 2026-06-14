@@ -452,6 +452,9 @@ parse_tokens(Token *tokens,
         free_ast(root);
         return NULL;
     }
+    #ifdef DEBUG
+    print_ast(root);
+    #endif
 
     return root;
 }
