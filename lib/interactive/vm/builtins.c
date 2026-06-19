@@ -6,6 +6,14 @@
 #include "../../utils.h"
 #include "eval.h"
 
+const struct call_options funcs[] = {{"print", 1, vm_print},
+                                     {"print_layout", 1, vm_print_layout},
+                                     {"foo", 0, vm_foo},
+                                     {"exit", 0, vm_exit},
+                                     {"update_system", 1, vm_update_system_status}};
+
+const size_t count_call_options = sizeof(funcs) / sizeof(funcs[0]);
+
 static Value make_none(void) {
     return (Value){.data.number_value = 0, .type = VALUE_NONE};
 }
@@ -28,8 +36,8 @@ static double value_to_number(Value value) {
 }
 
 Value vm_print(Value arg) {
-    
-        switch(arg.type) {
+
+    switch(arg.type) {
     case VALUE_NUMBER:
         printf("%g", arg.data.number_value);
         break;
@@ -40,9 +48,8 @@ Value vm_print(Value arg) {
         printf("None");
         break;
     }
-        printf("\n");
-        return make_none();
-    
+    printf("\n");
+    return make_none();
 }
 
 Value vm_foo(Value arg) {

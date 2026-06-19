@@ -49,13 +49,6 @@ void eval_ast(ASTNode *root) {
     for(size_t i = 0; i < root->block.count; i++) {
         eval_statement(root->block.children[i]);
     }
-    printf("\n\n\n");
-    for(size_t i = 0; i < variable_count; i++) {
-        if(!variables[i].name) break;
-        printf("variable %s, value ", variables[i].name);
-        print_value(variables[i].value);
-        printf("\n");
-    }
 }
 
 void eval_block(ASTNode *node) {
@@ -160,7 +153,7 @@ Value eval_function_call(ASTNode *node) {
     Value arg = make_none();
     if(node->call.arguments) { arg = eval_expression(node->call.arguments); }
 
-    for(size_t i = 0; i < sizeof(funcs) / sizeof(funcs[0]); i++) {
+    for(size_t i = 0; i < count_call_options; i++) {
         if(strcmp(funcs[i].name, node->call.name) == 0) return funcs[i].func(arg);
     }
     return make_none();

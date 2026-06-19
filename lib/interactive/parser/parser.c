@@ -16,7 +16,7 @@ typedef struct {
     Arena *arena;
 
     bool has_error;
-    enum ErrorCode error;
+    enum ParserErrorCode error;
 } Parser;
 
 static inline Token *peek(Parser *p) { return &p->tokens[p->pos]; }
@@ -58,7 +58,8 @@ static int skip_newlines(Parser *p) {
         count++;
     return count;
 }
-static void print_error_at(const char *error_str, const char *line_str, Token actual_token) {
+static void print_error_at(const char *error_str, const char *line_str,
+                           Token actual_token) {
     printf("An error occur at line %d\n", actual_token.line);
     printf("SyntaxError: %s\n", error_str);
     if(!line_str) return;
@@ -417,14 +418,14 @@ ASTNode *parse_statatement(Parser *p) {
 
 ASTNode *
 parse_tokens(Token *tokens,
-             size_t count) { // TODO make the parser able of parsing various lines
+             size_t count) { 
     // Init Parser
     Parser par;
     par.tokens = tokens;
     par.count = count;
     par.pos = 0;
     par.has_error = false;
-    par.error = ERR_OK;
+    par.error = PARSE_OK;
     par.arena = arena_create(0);
     if(!par.arena) return NULL;
 
@@ -452,9 +453,9 @@ parse_tokens(Token *tokens,
         free_ast(root);
         return NULL;
     }
-    #ifdef DEBUG
+#ifdef DEBUG
     print_ast(root);
-    #endif
+#endif
 
     return root;
 }
