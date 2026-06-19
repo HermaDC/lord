@@ -5,6 +5,7 @@
 #include "../linenoise-lib/linenoise.h"
 #include "parser/lexer.h"
 #include "parser/parser.h"
+#include "vm/builtins.h"
 #include "vm/eval.h"
 
 int run_script_file(FILE *f) {
@@ -34,11 +35,23 @@ int run_command_line(const char *line) {
     return 0;
     free(buffer);
 }
+void completion(const char *buf, linenoiseCompletions *lc) {
+    for(size_t i = 0; i < count_call_options; i++) {
+        if(strncmp(buf, funcs[i].name, strlen(buf)) == 0) {
+            linenoiseAddCompletion(lc, funcs[i].name);
+        }
+    }
+}
 
 int run_interactive_loop(void) {
+    linenoiseSetCompletionCallback(completion);
     while(1) {
         char *line = linenoise(">>> ");
-        if(line) run_command_line(line);
+        if(!line) continue;
+        linenoiseHistoryAdd(line);
+        run_command_line(line);
+
+        linenoiseFree(line);
     }
     return 0;
 }

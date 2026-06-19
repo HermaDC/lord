@@ -28,9 +28,4 @@ struct call_options {
     vm_func_call func;
 };
 
-Value vm_print(Value arg);
-Value vm_print_layout(Value arg);
-Value vm_foo(Value arg);
-Value vm_exit(Value arg);
-
 void eval_ast(ASTNode *root);

@@ -27,6 +27,35 @@ static double value_to_number(Value value) {
     }
 }
 
+Value vm_print(Value arg) {
+    
+        switch(arg.type) {
+    case VALUE_NUMBER:
+        printf("%g", arg.data.number_value);
+        break;
+    case VALUE_BOOL:
+        printf(arg.data.bool_value ? "True" : "False");
+        break;
+    default:
+        printf("None");
+        break;
+    }
+        printf("\n");
+        return make_none();
+    
+}
+
+Value vm_foo(Value arg) {
+    (void) arg;
+    printf("FOO\n");
+    return make_none();
+}
+
+Value vm_exit(Value arg) {
+    if(arg.type != VALUE_NONE) { exit((int) value_to_number(arg)); }
+    exit(0);
+}
+
 Value vm_print_layout(Value arg) {
     if(arg.type == VALUE_NONE) {
         printf("Expected layout id to print\n");
