@@ -38,7 +38,7 @@ int run_command_line(const char *line) {
 int run_interactive_loop(void) {
     while(1) {
         char *line = linenoise(">>> ");
-        run_command_line(line);
+        if(line) run_command_line(line);
     }
     return 0;
 }
