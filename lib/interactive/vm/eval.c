@@ -6,6 +6,7 @@
 
 #include "../parser/lexer.h"
 #include "../parser/parser.h"
+#include "builtins.h"
 
 static Value make_none(void) {
     Value v;
@@ -69,10 +70,9 @@ static void eval_statement(ASTNode *node);
 static Value eval_expression(ASTNode *node);
 static Value eval_function_call(ASTNode *node);
 
-Value vm_print(ASTNode *arg) {
-    if(arg) {
-        Value result = eval_expression(arg);
-        print_value(result);
+Value vm_print(Value arg) {
+    if(arg.type != VALUE_NONE) {
+        print_value(arg);
         printf("\n");
         return make_none();
     }
@@ -80,17 +80,14 @@ Value vm_print(ASTNode *arg) {
     return make_none();
 }
 
-Value vm_foo(ASTNode *arg) {
+Value vm_foo(Value arg) {
     (void) arg;
     printf("FOO\n");
     return make_none();
 }
 
-Value vm_exit(ASTNode *arg) {
-    if(arg) {
-        Value result = eval_expression(arg);
-        exit((int) value_to_number(result));
-    }
+Value vm_exit(Value arg) {
+    if(arg.type != VALUE_NONE) { exit((int) value_to_number(arg)); }
     exit(0);
 }
 
@@ -236,13 +233,18 @@ Value eval_binary(ASTNode *node) {
     }
 }
 
-struct call_options funcs[] = {
-    {"print", 1, vm_print}, {"foo", 0, vm_foo}, {"exit", 0, vm_exit}};
+struct call_options funcs[] = {{"print", 1, vm_print},
+                               {"print_layout", 1, vm_print_layout},
+                               {"foo", 0, vm_foo},
+                               {"exit", 0, vm_exit},
+                               {"update_system", 1, vm_update_system_status}};
 
 Value eval_function_call(ASTNode *node) {
+    Value arg = make_none();
+    if(node->call.arguments) { arg = eval_expression(node->call.arguments); }
+
     for(size_t i = 0; i < sizeof(funcs) / sizeof(funcs[0]); i++) {
-        if(strcmp(funcs[i].name, node->call.name) == 0)
-            return funcs[i].func(node->call.arguments);
+        if(strcmp(funcs[i].name, node->call.name) == 0) return funcs[i].func(arg);
     }
     return make_none();
 }
