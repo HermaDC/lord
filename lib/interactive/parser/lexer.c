@@ -128,7 +128,7 @@ void tokenize_line(const char *line, const int line_num, Tokenizator *tk) {
         }
         if(isalpha(line[i])) {
             size_t start = i;
-            while(isalpha(line[i]) || is_digit(line[i]))
+            while(isalpha(line[i]) || is_digit(line[i]) || line[i] == '_')
                 i++;
             size_t len = i - start;
             char *lexeme = malloc(len + 1);
