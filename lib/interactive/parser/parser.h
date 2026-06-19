@@ -1,8 +1,9 @@
 #pragma once
 
-#include "lexer.h"
 #include <stdbool.h>
 #include <stddef.h>
+
+#include "lexer.h"
 
 enum NodeType {
     NODE_NUMBER,
@@ -18,8 +19,8 @@ enum NodeType {
     NODE_WHILE
 };
 
-enum ErrorCode {
-    ERR_OK,
+enum ParserErrorCode {
+    PARSE_OK,
     SYNTAX_ERROR,
     VALUE_ERROR,
     NAME_ERROR,
@@ -27,7 +28,7 @@ enum ErrorCode {
 };
 
 struct ErrorParser {
-    enum ErrorCode error_type;
+    enum ParserErrorCode error_type;
     char *msg;
     int arund;
 };
