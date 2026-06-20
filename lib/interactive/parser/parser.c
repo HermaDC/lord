@@ -7,7 +7,7 @@
 #include <string.h>
 
 #include "lexer.h"
-#include "parser_utils.h"
+#include "parser-utils.h"
 
 typedef struct {
     Token *tokens;
@@ -416,9 +416,7 @@ ASTNode *parse_statatement(Parser *p) {
     return node;
 }
 
-ASTNode *
-parse_tokens(Token *tokens,
-             size_t count) { 
+ASTNode *parse_tokens(Token *tokens, size_t count) {
     // Init Parser
     Parser par;
     par.tokens = tokens;
