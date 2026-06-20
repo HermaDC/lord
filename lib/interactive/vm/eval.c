@@ -9,101 +9,121 @@
 #include "builtins.h"
 #include "utils.h"
 
-static Value eval_binary(ASTNode *node);
-static void eval_statement(ASTNode *node);
-static Value eval_expression(ASTNode *node);
-static Value eval_function_call(ASTNode *node);
+static Value eval_binary(VM *vm, ASTNode *node);
+static void eval_statement(VM *vm, ASTNode *node);
+static Value eval_expression(VM *vm, ASTNode *node);
+static Value eval_function_call(VM *vm, ASTNode *node);
 
-static Variable variables[250] = {0};
-static size_t variable_count = 0;
+inline VM make_VM(void) {
+    VM vm;
+    vm.var_capacity = 32;
+    vm.variables = malloc(32 * sizeof(Variable));
+    vm.var_count = 0;
+    vm.error_code = 0;
+    vm.should_exit = 0;
+    return vm;
+}
 
-static void set_variable(const char *name, Value value) {
-    for(size_t i = 0; i < variable_count; i++) {
-        if(strcmp(variables[i].name, name) == 0) {
-            variables[i].value = value;
+inline void destroy_VM(VM *vm) {
+    for(size_t i = 0; i < vm->var_count; i++) {
+        free(vm->variables[i].name);
+        vm->variables[i].name = NULL;
+    }
+    vm->var_count = 0;
+    vm->var_capacity = 0;
+    free(vm->variables);
+    vm->variables = NULL;
+}
+
+static void set_variable(VM *vm, const char *name, Value value) {
+    for(size_t i = 0; i < vm->var_count; i++) {
+        Variable tmp_var = vm->variables[i];
+        if(strcmp(tmp_var.name, name) == 0) {
+            vm->variables[i].value = value;
             return;
         }
     }
 
-    if(variable_count >= 250) {
+    if(vm->var_count >= 256) {
         printf("Too many variables\n");
         return;
     }
 
-    variables[variable_count].name = strdup(name);
-    variables[variable_count].value = value;
-    variable_count++;
+    vm->variables[vm->var_count].name = strdup(name);
+    vm->variables[vm->var_count].value = value;
+    vm->var_count++;
 }
 
-static Value get_variable(char *name) {
-    for(size_t i = 0; i < variable_count; i++) {
-        if(strcmp(variables[i].name, name) == 0) return variables[i].value;
+static Value get_variable(VM *vm, char *name) {
+    for(size_t i = 0; i < vm->var_count; i++) {
+        if(strcmp(vm->variables[i].name, name) == 0) return vm->variables[i].value;
     }
 
     printf("Undefined variable: %s\n", name);
     return make_none();
 }
 
-void eval_ast(ASTNode *root) {
+void eval_ast(VM *vm, ASTNode *root) {
     if(!root || root->type != NODE_BLOCK) { return; }
     for(size_t i = 0; i < root->block.count; i++) {
-        eval_statement(root->block.children[i]);
+        if(vm->should_exit) return;
+        eval_statement(vm, root->block.children[i]);
     }
 }
 
-void eval_block(ASTNode *node) {
+void eval_block(VM *vm, ASTNode *node) {
     if(node->type != NODE_BLOCK) return;
     for(size_t i = 0; i < node->block.count; i++) {
-        eval_statement(node->block.children[i]);
+        eval_statement(vm, node->block.children[i]);
     }
 }
 
-void eval_statement(ASTNode *node) {
+void eval_statement(VM *vm, ASTNode *node) {
     if(!node) return;
 
     switch(node->type) {
     case NODE_ASSIGN: {
-        Value value = eval_expression(node->assign.value);
-        set_variable(node->assign.name, value);
+        Value value = eval_expression(vm, node->assign.value);
+        set_variable(vm, node->assign.name, value);
         break;
     }
     case NODE_IF: {
-        Value condition = eval_expression(node->if_statement.condition);
+        Value condition = eval_expression(vm, node->if_statement.condition);
         if(value_is_truthy(condition)) {
-            eval_block(node->if_statement.if_branch);
+            eval_block(vm, node->if_statement.if_branch);
         } else if(node->if_statement.else_branch) {
-            eval_block(node->if_statement.else_branch);
+            eval_block(vm, node->if_statement.else_branch);
         }
         break;
     }
     case NODE_WHILE: {
-        while(value_is_truthy(eval_expression(node->while_statement.condition))) {
-            eval_block(node->while_statement.body);
+        while(value_is_truthy(eval_expression(vm, node->while_statement.condition))) {
+            eval_block(vm, node->while_statement.body);
         }
         break;
     }
     default: {
-        (void) eval_expression(node);
+        (void) eval_expression(vm, node);
         break;
     }
     }
 }
 
-Value eval_expression(ASTNode *node) {
+Value eval_expression(VM *vm, ASTNode *node) {
     if(!node) return make_none();
     switch(node->type) {
     case NODE_BINARY_OP:
-        return eval_binary(node);
+        return eval_binary(vm, node);
     case NODE_NUMBER:
         return make_number(node->number.value);
     case NODE_BOOL:
         return make_bool(node->boolean.value);
     case NODE_VARIABLE:
-        return get_variable(node->variable.name);
+        return get_variable(vm, node->variable.name);
     case NODE_FUNCTION_CALL:
-        return eval_function_call(node);
+        return eval_function_call(vm, node);
     case NODE_UNARY_OP: {
-        Value value = eval_expression(node->unary.right);
+        Value value = eval_expression(vm, node->unary.right);
         switch(node->unary.op) {
         case TOKEN_MINUS:
             return make_number(-value_to_number(value));
@@ -118,9 +138,9 @@ Value eval_expression(ASTNode *node) {
     }
 }
 
-Value eval_binary(ASTNode *node) {
-    Value left = eval_expression(node->binary.left);
-    Value right = eval_expression(node->binary.right);
+Value eval_binary(VM *vm, ASTNode *node) {
+    Value left = eval_expression(vm, node->binary.left);
+    Value right = eval_expression(vm, node->binary.right);
     switch(node->binary.op) {
     case TOKEN_PLUS:
         return make_number(value_to_number(left) + value_to_number(right));
@@ -149,12 +169,15 @@ Value eval_binary(ASTNode *node) {
     }
 }
 
-Value eval_function_call(ASTNode *node) {
+Value eval_function_call(VM *vm, ASTNode *node) {
     Value arg = make_none();
-    if(node->call.arguments) { arg = eval_expression(node->call.arguments); }
+    if(node->call.arguments) { arg = eval_expression(vm, node->call.arguments); }
 
     for(size_t i = 0; i < count_call_options; i++) {
-        if(strcmp(funcs[i].name, node->call.name) == 0) return funcs[i].func(arg);
+        if(strcmp(funcs[i].name, node->call.name) == 0) return funcs[i].func(vm, arg);
     }
+    printf("Function not found\n");
+    vm->should_exit = 1;
+    vm->error_code = 2;
     return make_none();
 }

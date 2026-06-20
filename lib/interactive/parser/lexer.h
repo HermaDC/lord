@@ -123,6 +123,7 @@ static inline const char *token_type_to_str(enum TokenType type) {
 }
 
 LexerResult tokenize_file(FILE *f);
+void free_lexer_result(LexerResult *result);
 #ifdef DEBUG
 void print_tokens(const Token *t, size_t count);
 #endif

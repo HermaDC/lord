@@ -13,13 +13,19 @@ int run_script_file(FILE *f) {
     ASTNode *root = parse_tokens(res.tokens, res.token_count);
     if(!root) {
         printf("Failed to tokenize file\n");
+        free_lexer_result(&res);
         return 1;
     }
-    eval_ast(root);
+    VM vm = make_VM();
+    if(!vm.variables) return 1;
+    eval_ast(&vm, root);
+    free_ast(root);
+    free_lexer_result(&res);
+    destroy_VM(&vm);
     return 0;
 }
 
-int run_command_line(const char *line) {
+int run_command_line(VM *vm, const char *line) {
     size_t size = strlen(line);
     char *buffer = strdup(line);
     FILE *f = fmemopen(buffer, size, "r");
@@ -27,13 +33,15 @@ int run_command_line(const char *line) {
     ASTNode *root = parse_tokens(res.tokens, res.token_count);
     if(!root) {
         printf("Failed to tokenize file\n");
+        free_lexer_result(&res);
         free(buffer);
+        fclose(f);
         return 1;
     }
-
-    eval_ast(root);
+    eval_ast(vm, root);
+    free_ast(root);
+    free_lexer_result(&res);
     return 0;
-    free(buffer);
 }
 void completion(const char *buf, linenoiseCompletions *lc) {
     for(size_t i = 0; i < count_call_options; i++) {
@@ -45,11 +53,15 @@ void completion(const char *buf, linenoiseCompletions *lc) {
 
 int run_interactive_loop(void) {
     linenoiseSetCompletionCallback(completion);
+    VM vm = make_VM();
+    if(!vm.variables) return 1;
     while(1) {
         char *line = linenoise(">>> ");
         if(!line) continue;
         linenoiseHistoryAdd(line);
-        run_command_line(line);
+        int err = run_command_line(&vm, line);
+        if(err) exit(err);
+        if(vm.should_exit) exit(vm.error_code);
 
         linenoiseFree(line);
     }

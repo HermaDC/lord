@@ -49,6 +49,36 @@ void free_tokenizator(Tokenizator *tk) {
     free(tk->token_arr);
 }
 
+void free_lexer_result(LexerResult *result) {
+    if(!result) return;
+
+    if(result->tokens) {
+        for(size_t i = 0; i < result->token_count; i++) {
+            enum TokenType actual_type = result->tokens[i].type;
+            switch(actual_type) {
+            case TOKEN_IDENTIFIER:
+            case TOKEN_NUMBER:
+                free(result->tokens[i].lexeme);
+                break;
+            default:
+                break;
+            }
+        }
+        free(result->tokens);
+        result->tokens = NULL;
+        result->token_count = 0;
+    }
+
+    if(result->lines) {
+        for(size_t i = 0; i < result->line_count; i++) {
+            free(result->lines[i]);
+        }
+        free(result->lines);
+        result->lines = NULL;
+        result->line_count = 0;
+    }
+}
+
 static inline int push_token(Tokenizator *tk, const Token tok) {
     if(tk->count >= tk->buffer) {
         tk->buffer *= 2;
@@ -131,10 +161,10 @@ void tokenize_line(const char *line, const int line_num, Tokenizator *tk) {
             while(isalpha(line[i]) || is_digit(line[i]) || line[i] == '_')
                 i++;
             size_t len = i - start;
+            // TODO: transfor this in a table search
             char *lexeme = malloc(len + 1);
             strncpy(lexeme, &line[start], len);
             lexeme[len] = 0;
-            // TODO: transfor this in a table search
             if(strcmp(lexeme, "False") == 0) {
                 push_token(tk, (Token){TOKEN_FALSE_LITERAL, NULL, start, line_num});
                 free(lexeme);

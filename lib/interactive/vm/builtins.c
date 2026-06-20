@@ -5,38 +5,26 @@
 
 #include "../../utils.h"
 #include "eval.h"
+#include "utils.h"
 
 const struct call_options funcs[] = {{"print", 1, vm_print},
                                      {"print_layout", 1, vm_print_layout},
                                      {"foo", 0, vm_foo},
                                      {"exit", 0, vm_exit},
-                                     {"update_system", 1, vm_update_system_status}};
+                                     {"update_system", 1, vm_update_system_status},
+                                     {"systems_loaded", 0, vm_system_loaded}};
 
 const size_t count_call_options = sizeof(funcs) / sizeof(funcs[0]);
 
-static Value make_none(void) {
-    return (Value){.data.number_value = 0, .type = VALUE_NONE};
-}
-
-Value vm_help(Value arg) {
+Value vm_help(VM *vm, Value arg) {
+    (void) vm;
     (void) arg;
     printf("Welcome to lord help :)\n");
     return make_none();
 }
 
-static double value_to_number(Value value) {
-    switch(value.type) {
-    case VALUE_NUMBER:
-        return value.data.number_value;
-    case VALUE_BOOL:
-        return value.data.bool_value ? 1.0 : 0.0;
-    default:
-        return 0.0;
-    }
-}
-
-Value vm_print(Value arg) {
-
+Value vm_print(VM *vm, Value arg) {
+    (void) vm;
     switch(arg.type) {
     case VALUE_NUMBER:
         printf("%g", arg.data.number_value);
@@ -52,18 +40,22 @@ Value vm_print(Value arg) {
     return make_none();
 }
 
-Value vm_foo(Value arg) {
+Value vm_foo(VM *vm, Value arg) {
+    (void) vm;
     (void) arg;
     printf("FOO\n");
     return make_none();
 }
 
-Value vm_exit(Value arg) {
-    if(arg.type != VALUE_NONE) { exit((int) value_to_number(arg)); }
-    exit(0);
+Value vm_exit(VM *vm, Value arg) {
+    vm->should_exit = 1;
+    vm->error_code = 0;
+    if(arg.type != VALUE_NONE) vm->error_code = (int) value_to_number(arg);
+    return make_none();
 }
 
-Value vm_print_layout(Value arg) {
+Value vm_print_layout(VM *vm, Value arg) {
+    (void) vm;
     if(arg.type == VALUE_NONE) {
         printf("Expected layout id to print\n");
         return make_none();
@@ -86,7 +78,8 @@ Value vm_print_layout(Value arg) {
     return make_none();
 }
 
-Value vm_update_system_status(Value arg) {
+Value vm_update_system_status(VM *vm, Value arg) {
+    (void) vm;
     if(arg.type == VALUE_NONE) {
         printf("Expected a system to update");
         return make_none();
@@ -103,4 +96,10 @@ Value vm_update_system_status(Value arg) {
     }
     update_system_status(&app_context.systems[id], 0);
     return make_none();
+}
+
+Value vm_system_loaded(VM *vm, Value arg) {
+    (void) arg;
+    (void) vm;
+    return make_number(app_context.count);
 }
