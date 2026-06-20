@@ -16,8 +16,17 @@ BIN_NAME = lord
 
 # Fuentes
 SRC = main.c \
-      lib/parser.c lib/types.c lib/utils.c \
-      lib/cli.c lib/interactive.c
+      lib/layout-parser.c \
+      lib/types.c \
+      lib/utils.c \
+      lib/cli.c \
+      lib/interactive/interactive.c \
+      lib/interactive/parser/parser.c \
+      lib/interactive/parser/lexer.c \
+      lib/interactive/vm/eval.c \
+      lib/interactive/vm/builtins.c \
+      lib/interactive/parser/parser-utils.c
+
 LIB_SRC = lib/linenoise-lib/linenoise.c
 ALL_SRC = $(SRC) $(LIB_SRC)
 
