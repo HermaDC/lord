@@ -8,8 +8,8 @@
 
 #include "lib/cli.h"
 #include "lib/config.h"
-#include "lib/interactive.h"
-#include "lib/parser.h"
+#include "lib/interactive/interactive.h"
+#include "lib/layout-parser.h"
 #include "lib/types.h"
 #include "lib/utils.h"
 
@@ -20,10 +20,9 @@ void msleep(int ms) {
     nanosleep(&ts, NULL);
 }
 
-AppContext app_context = {
-    .count = 0,
-    .systems = NULL,
-    .global_config = {.MAX_STACK_AMOUNT = MAX_STACK_SIZE, .VERBOSE = false}};
+AppContext app_context = {.count = 0, .systems = NULL};
+
+struct Config global_config = {.MAX_STACK_AMOUNT = MAX_STACK_SIZE, .VERBOSE = false};
 
 void cleanup(AppContext context) {
     if(!context.systems) return;
@@ -54,7 +53,7 @@ int main(int argc, char *argv[]) {
 
     if(opts.verbose) {
         printf("[DEBUG] Verbose mode activated\n");
-        app_context.global_config.VERBOSE = true;
+        global_config.VERBOSE = true;
     }
 
     if(opts.file) {
@@ -70,7 +69,7 @@ int main(int argc, char *argv[]) {
 
     if(opts.command) {
         printf("Running: %s\n", opts.command);
-        int err = run_command_cli(opts.command);
+        int err = run_command_line(opts.command);
 
         exit_code = err;
         goto on_exit;
@@ -81,11 +80,7 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "Update time set and interactive too\n aborting...");
             return 1;
         }
-        int err = interactive_main_loop();
-        if(err != CMD_ERR_OK) {
-            exit_code = 2;
-            goto on_exit;
-        }
+        int err = run_interactive_loop();
         exit_code = err;
         goto on_exit;
     }
@@ -100,9 +95,6 @@ int main(int argc, char *argv[]) {
                 fprintf(stderr, "Update time set and interactive too\n aborting...");
                 return 3;
             }
-            // loop interactivo aquí
-            int err = interactive_main_loop();
-            return err;
 
             for(size_t i = 0; i < app_context.count; i++) {
                 update_system_status(&app_context.systems[i], 0);

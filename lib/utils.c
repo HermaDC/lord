@@ -9,7 +9,7 @@
 #include <time.h>
 
 #include "config.h"
-#include "parser.h"
+#include "layout-parser.h"
 
 // TODO: use a define instead of hardcoding the -1 for "no track"
 
@@ -21,7 +21,7 @@ int generate_id() {
 }
 
 void log_message(LogLevel level, const char *format, ...) {
-    if(level == LOG_DEBUG && !app_context.global_config.VERBOSE) return;
+    if(level == LOG_DEBUG && !global_config.VERBOSE) return;
     const char *level_str;
     switch(level) {
     case LOG_ERROR:
@@ -445,7 +445,7 @@ void update_system_status(System *system, int index) {
 }
 
 // Returns the index of the first track
-int tokens_to_track(System *system, Token *tokens, size_t token_count) {
+int tokens_to_track(System *system, LayoutToken *tokens, size_t token_count) {
     if(!system || !tokens || token_count <= 0) return NO_FOLLOWING_TRACK;
 
     int head_index = NO_FOLLOWING_TRACK;
@@ -463,7 +463,7 @@ int tokens_to_track(System *system, Token *tokens, size_t token_count) {
     int switch_stack_top = -1;
 
     for(size_t i = 0; i < token_count; i++) {
-        Token actual = tokens[i];
+        LayoutToken actual = tokens[i];
 
         switch(actual.type) {
         case SW:
@@ -637,7 +637,7 @@ System *load_system_layout_from_file(const char *path, size_t *out_count) {
 
         size_t num_tokens;
         TokenizeError err = 0;
-        Token *tokens = tokenize(line, &num_tokens, &err);
+        LayoutToken *tokens = tokenize_layout(line, &num_tokens, &err);
         if(err != TOKENIZE_OK) {
             log_message(LOG_ERROR, "Tokenization failed for line %zu: %d", *out_count,
                         err);
@@ -647,7 +647,7 @@ System *load_system_layout_from_file(const char *path, size_t *out_count) {
         }
         if(!tokens) continue; // empty line or comments
 
-        check_syntax(tokens, line, num_tokens, &err);
+        check_syntax_layout_config(tokens, line, num_tokens, &err);
         if(err != TOKENIZE_OK) {
             log_message(LOG_ERROR, "Syntax check failed for line %zu: %d", *out_count,
                         err);

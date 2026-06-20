@@ -9,6 +9,8 @@ struct Config {
     bool VERBOSE;
 };
 
+extern struct Config global_config;
+
 #ifdef DEBUG
 #define SEED 1234
 #else

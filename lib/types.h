@@ -1,9 +1,10 @@
 #ifndef TYPES_H
 #define TYPES_H
 
-#include "config.h"
 #include <stdbool.h>
 #include <stdlib.h>
+
+#include "config.h"
 
 #define NO_FOLLOWING_TRACK -1
 
@@ -49,7 +50,7 @@ typedef struct {
     int value;
     TokenType type;
     size_t column; // Column were the token appears in the str
-} Token;
+} LayoutToken;
 
 typedef enum {
     TOKENIZE_OK,
@@ -108,7 +109,6 @@ void free_system(System *sys);
 typedef struct {
     System *systems;
     size_t count;
-    struct Config global_config;
 } AppContext;
 
 extern AppContext app_context;
