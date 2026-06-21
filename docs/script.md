@@ -1,28 +1,20 @@
-A script is a sequence of tokens separated by space, comma, or semicolon.
+A script (layout script) is a lightweight, token-based notation used to express a sequence of tracks and switch expressions. The tokenizer accepts numbers and nested `SW(...)` expressions; tokens may be separated by whitespace, commas or semicolons.
 
-A token is either:
+Syntax summary
 
-- a positive integer
+- Token: a non-negative integer (e.g. `1`) or a switch expression `SW(...)`.
+- Separators: whitespace, `,` or `;` (all treated equivalently).
+- A switch expression must be written as `SW(<content>)` where `<content>` is a comma/space-separated sequence of tokens. The content must begin and end with a number, but may contain nested `SW(...)` expressions.
 
-- a switch expression
+Comments
 
-The script must begin and end with a number.
+- Single-line comments start with `#` or `//` and continue to the end of the line.
 
-A switch expression has the form:
+Examples
 
-`SW( <content> )`
+- `1, SW(2, SW(3,4), 5), 6`  — valid: a top-level sequence containing a nested switch.
+- `10; 11 SW( 12, 13 ); 14` — equivalent representation using semicolons.
 
-Where <content>:
+Notes
 
-* is a sequence of tokens
-* must start with a number
-* must end with a number
-* may contain nested switches
-
-Nested switches must be fully closed before the enclosing switch is closed
-
-Example of a valid script:
-
-`1, SW( 2, SW(3, 4), 5), 6`
-
-Comments can be made interchangeably with `#`or `//`. anything followed won't be tokenized.
+- The layout parser is tolerant of extra whitespace. Syntax errors (unmatched parentheses, missing numbers) are reported by the tokenizer/parser with a location to help debugging.

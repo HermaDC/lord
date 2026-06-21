@@ -1,37 +1,20 @@
-# Interactive mode commands
+# Interactive mode
 
-To enter interactive mode, run `lord -i` or `lord --interactive` and then in the interactive shell use the following commands. the id starts from 0 and goes up to the number of systems loaded 
+Start the REPL with `lord -i` or `lord --interactive`. The interactive shell provides a lightweight command interface to inspect, update and persist loaded systems and to run ad‑hoc script expressions using the embedded VM.
 
-## List of commands
+The REPL features:
 
-### list
+- Prompt: `>>>` with line editing and history (powered by `linenoise`).
+- Tab completion for builtin function names.
 
-Lists all the systems available. Format is `system <id>:  count <track_count>`. The sw also counts as a track.
+Note: system IDs are zero-based (0..N-1) and refer to systems loaded via the CLI `-f`/`--file` option.
 
-### print \<id>
+Scripting and evaluation
 
-Prints the system with the given id with colored lines
+You can enter script expressions and statements directly at the prompt; they are parsed and executed by the embedded parser and VM (`lib/interactive/parser` and `lib/interactive/vm`). Use the `save` command to persist results to disk, or call builtins from the REPL.
 
-### save \<id> \<filename>
+Examples
 
-Saves the system with the given id to a file with the given name. The format is the same as the input file.
+- `id = 0` then `print id`
+- Enter an expression such as `1 + 2 * 3` or call a builtin: `print(42)`
 
-### update \<id>
-
-Updates the system with the given id.
-
-## set \<var> \<value>
-
-Sets a variable to a value. Then variable can be used in the commands with the syntax `$var`. For example, if you set `set id 0`, you can use `print $id` to print the system with id 0. This is useful to avoid typing the id multiple times.
-
-### clear
-
-Clears the screen
-
-### help
-
-Shows all available commands
-
-### exit 
-
-Closes the actual session

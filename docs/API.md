@@ -82,98 +82,43 @@ This document describes the public structures and functions of the LORD project.
     - `system`: pointer to the `System` struct representing the entire system.
     - `num_tracks`: number of straight tracks to create in the line.
     - `index`: pointer to a size_t variable where the index of the first track of the line will be stored.
-  - Return: `ERR_OK` on success, or an appropriate error code on failure.
+  # LORD — API Reference
 
-### int get_last_track(System *system, int start_index);
-  - Returns the index of the last track connected counting from start_index
-  - Parameters:
-    - `system`: pointer to the `System` struct representing the entire system.
-    - `start_index`: index of the track to start counting from.
-  - Return: index of the last track.
+  ## Overview
 
+  This document provides a concise reference for the public types and modules in the LORD project. It summarizes the principal data structures and the main entry points that other code or users are expected to call. For implementation details consult the headers in `lib/`.
 
-### int get_next_track(System *system, int index);
-  - Returns the index of the next track from index
-  - Parameters:
-    - `system`: pointer to the `System` struct representing the entire system.
-    - `index`: index of the track to get the next track from.
-  - Return: index of the next track. 
+  ## Project modules (high level)
 
-### int count_branch_tracks(System *system, int branch_index);
-  - Counts recursively the tracks, including the branches, counting from branch_index
-  - Parameters:
-    - `system`: pointer to the `System` struct representing the entire system.
-    - `branch_index`: index of the track to start counting from (should be a branch track).
-  - Return: total count of tracks in the branch.
+  - **CLI**: argument parsing and top-level program flow (`lib/cli.h`, `main.c`).
+  - **Layout parser**: tokenizes and parses system layout files used to build `System` instances (`lib/layout-parser.*`).
+  - **Types & system model**: core data structures such as `Track`, `System`, and helper routines (`lib/types.h`).
+  - **Interactive / REPL**: command-line REPL, history and completion (uses `linenoise`, `lib/interactive/`).
+  - **Script parser & VM**: a small AST-based scripting language with evaluation and builtin calls (`lib/interactive/parser/*`, `lib/interactive/vm/*`).
 
-### ErrorCode force_update_track_status(System *system, int track_index, Status new_status);
-  - Forces to update the track_index track to new_status
-  - Parameters:
-    - `system`: pointer to the `System` struct representing the entire system.
-    - `track_index`: index of the track to update.
-    - `new_status`: new status to set for the track.
-  - Return: `ERR_OK` on success, or an appropriate error code on failure.
+  ## Key public types (summary)
 
-### void update_system_status(System *system, int index);
-  - Updates all the system
-  - Parameters:
-    - `system`: pointer to the `System` struct representing the entire system.
-    - `index`: index of the track to start the update from (can be any track in the system).
+  - `System` — in-memory representation of a line/system composed of `Track` entries. See `lib/types.h` for fields and lifecycle functions.
+  - `Track` — single track entry (straight or switch) with links to adjacent tracks and optional sensors.
+  - `ErrorCode` — canonical error codes used across the codebase (`ERR_OK`, `ERR_INVALID_ARG`, etc.).
+  - `CLIOptions` — parsed command-line options returned by `parse_args()` (see `lib/cli.h`).
 
-### ErrorCode init_system(System *sys, size_t initial_capacity);
+  ## Principal functions and entry points
+
+  The project exposes a small set of functions intended for consumers or tests; the implementation headers are the authoritative source.
+
+  - `CLIOptions parse_args(int argc, char *argv[])` — parse command-line arguments (`lib/cli.h`).
+  - `void print_help(void)` — prints command-line usage (`lib/cli.h`).
+  - `System *load_system_layout_from_file(const char *path, size_t *count)` — parse a layout file and return an array of `System` objects.
+  - `ErrorCode save_system_to_file(System *system, const char *path)` — persist a `System` to disk.
+  - `ErrorCode init_system(System *sys, size_t initial_capacity)` / `void free_system(System *sys)` — lifecycle helpers for `System` objects.
+  - `int run_script_file(FILE *f)` — parse and execute a script file using the embedded VM (`lib/interactive/interactive.c`).
+  - `int run_interactive_loop(void)` — start the interactive REPL (history & completion) (`lib/interactive/interactive.c`).
+
+  ## Documentation notes
+
+  - This file is a top-level quick reference. For full API and field-level documentation, open the corresponding header files (for example `lib/types.h`, `lib/cli.h`, `lib/layout-parser.h`, and files under `lib/interactive/`).
+  - The scripting language and VM are intentionally small and are implemented under `lib/interactive/parser` and `lib/interactive/vm`.
+
+  If you want, I can add cross-references (links) from these summary entries to specific header line numbers in the repository.
   - Initializes the system with an initial capacity for tracks.
-  - Parameters:
-    - `sys`: pointer to a `System` struct to initialize.
-    - `initial_capacity`: initial number of tracks to allocate space for.
-  - Return: `ERR_OK` on success, or an appropriate error code on failure.
----
-
-void print_tracks_with_switches(System *system, int index);
-  - Prints the system tracks with the switches, starting from index
-  - Parameters:
-    - `system`: pointer to the `System` struct representing the entire system.
-    - `index`: index of the track to start printing from (can be any track in the system).
----
-
-System *load_system_layout_from_file(const char *path, size_t *count);
-  - Loads the system layout from a file at the given path, returning a pointer to an array of systems, one per line of the file. The count parameter will be set to the number of systems loaded.
-  - Parameters:
-    - `path`: path to the file containing the system layout.
-    - `count`: pointer to a size_t variable where the number of systems loaded will be stored.
-  - Return: pointer to an array of `System` structs on success, or NULL
----
-
-ErrorCode save_system_to_file(System *system, const char* path);
-  - Saves the current system layout to a file at the given path.
-  - Parameters:
-    - `system`: pointer to the `System` struct representing the entire system to save.
-    - `path`: path to the file where the system layout will be saved.
-  - Return: `ERR_OK` on success, or an appropriate error code on failure.
-
-
----
-
-## Minimal Usage Example
-```c
-int main(){
-    //Creates and initialize the system
-    System sys;
-    init_system(&sys, 10);
-
-    size_t head_index;
-
-    //creates a straight line of 5 tracks
-    ErrorCode err = create_straight_line(&sys, 5, &head_index);
-    if (err != ERR_OK) {
-        fprintf(stderr, "Error creating straight line\n");
-        return 1;
-    }
-
-    //Prints before and after updating the system status
-    print_tracks_with_switches(&sys, 0);
-    printf("\n");
-    update_system_status(&sys, 0);
-    print_tracks_with_switches(&sys, 0);
-    return 0;
-}
-```
