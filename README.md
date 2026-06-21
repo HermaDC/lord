@@ -90,7 +90,7 @@ flag       | long flag        | description | arguments
 -i         | --interactive    | Enter interactive mode. In this mode, the user can enter commands to manage the system. On exit closes the program | none
 -u         | --update-time    | Set the update time in milliseconds for the system. This is used to simulate the passage of time in the system. | milliseconds
 -s         | --save           | Save the current system layout to files. Each system will be saved in a separate file named `system_<id>.txt`. The file format is the same as the input file.| none
--v         | --verbose        | Enable verbose mode. This will print additional debug information to the console. | none
+           | --verbose        | Enable verbose mode. This will print additional debug information to the console. | none
 
 For the list of commands refer to [docs/interactive.md](docs/interactive.md)
 
