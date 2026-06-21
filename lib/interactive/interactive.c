@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "../linenoise-lib/linenoise.h"
 #include "parser/lexer.h"
@@ -52,6 +53,9 @@ void completion(const char *buf, linenoiseCompletions *lc) {
 }
 
 int run_interactive_loop(void) {
+    if(!isatty(STDIN_FILENO)){
+        return run_script_file(stdin);
+    }
     linenoiseSetCompletionCallback(completion);
     VM vm = make_VM();
     if(!vm.variables) return 1;
