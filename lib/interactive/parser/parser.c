@@ -58,21 +58,18 @@ static int skip_newlines(Parser *p) {
         count++;
     return count;
 }
-static void print_error_at(const char *error_str, const char *line_str,
-                           Token actual_token) {
-    printf("An error occur at line %d\n", actual_token.line);
-    printf("SyntaxError: %s\n", error_str);
-    if(!line_str) return;
+static void report_parser_error(Parser *p, const char *error_str) {
+    if(!p || p->has_error) return;
 
-    printf("%s", line_str);
-    for(int i = 0; i < actual_token.column; i++)
-        putc(' ', stdout);
-    putc('^', stdout);
-}
-void parser_error(Parser *p, const char *error_str) {
+    Token *token = peek(p);
+    fprintf(stderr, "SyntaxError at line %d, column %d: %s\n", token->line,
+            token->column, error_str);
     p->has_error = true;
     p->error = SYNTAX_ERROR;
-    print_error_at(error_str, NULL, *peek(p));
+}
+
+void parser_error(Parser *p, const char *error_str) {
+    report_parser_error(p, error_str);
 }
 
 void free_ast(ASTNode *node) {
@@ -115,11 +112,14 @@ ASTNode *parse_primary(Parser *p) {
     }
     if(match(p, TOKEN_LEFT_PAREN)) {
         ASTNode *left = parse_expression(p);
-        if(!match(p, TOKEN_RIGHT_PAREN)) { parser_error(p, "SyntaxError: expected ')'"); }
+        if(p->has_error) return NULL;
+        if(!match(p, TOKEN_RIGHT_PAREN)) {
+            parser_error(p, "expected ')'" );
+            return NULL;
+        }
         return left;
     }
-    printf("parse_primary token=%s\n", token_type_to_str(peek(p)->type));
-    parser_error(p, "SyntaxError: expected expression");
+    parser_error(p, "expected expression");
     return NULL;
 }
 
@@ -203,6 +203,7 @@ ASTNode *parse_assignment(Parser *p) {
     }
 
     ASTNode *value = parse_expression(p);
+    if(p->has_error) return NULL;
 
     return make_assign(p->arena, name->lexeme, value);
 }
@@ -223,16 +224,15 @@ static ASTNode *parse_block(Parser *p) {
     }
 
     ASTNode *block = make_block(p->arena);
-    printf("Parsing block, indent condume\n");
     while(!check(p, TOKEN_DEDENT) && !is_at_end(p)) {
         skip_newlines(p);
+        if(p->has_error) return NULL;
         if(check(p, TOKEN_DEDENT)) { break; }
         ASTNode *stmt = parse_statatement(p);
 
         if(!stmt) return NULL;
 
         push_to_block(p->arena, block, stmt);
-        printf("Statatement parse\n");
     }
 
     if(!match(p, TOKEN_DEDENT)) {
@@ -440,6 +440,7 @@ ASTNode *parse_tokens(Token *tokens, size_t count) {
         if(is_at_end(&par)) break;
         ASTNode *node = parse_statatement(&par);
         if(!node) {
+            if(par.has_error) break;
             if(is_at_end(&par)) break;
             parser_error(&par, "parser error");
             break;
