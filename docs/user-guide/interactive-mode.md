@@ -15,6 +15,8 @@ You can enter script expressions and statements directly at the prompt; they are
 
 Examples
 
-- `id = 0` then `print id`
+- `id = 0` then `print(id)`
 - Enter an expression such as `1 + 2 * 3` or call a builtin: `print(42)`
+
+
 

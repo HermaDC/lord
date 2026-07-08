@@ -1,9 +1,9 @@
-A script (layout script) is a lightweight, token-based notation used to express a sequence of tracks and switch expressions. The tokenizer accepts numbers and nested `SW(...)` expressions; tokens may be separated by whitespace, commas or semicolons.
+A script (layout script) is a lightweight, token-bassed notation used to express a sequence of tracks and switch expressions. The tokenizer accepts numbers and nested `SW(...)` expressions; tokens may be separated by white spaces, commas or semicolons.
 
 Syntax summary
 
 - Token: a non-negative integer (e.g. `1`) or a switch expression `SW(...)`.
-- Separators: whitespace, `,` or `;` (all treated equivalently).
+- Separators: white space, `,` or `;` (all treated equivalently).
 - A switch expression must be written as `SW(<content>)` where `<content>` is a comma/space-separated sequence of tokens. The content must begin and end with a number, but may contain nested `SW(...)` expressions.
 
 Comments
@@ -17,4 +17,4 @@ Examples
 
 Notes
 
-- The layout parser is tolerant of extra whitespace. Syntax errors (unmatched parentheses, missing numbers) are reported by the tokenizer/parser with a location to help debugging.
+- The layout parser is tolerant of extra white spaces. Syntax errors (unmatched parentheses, missing numbers) are reported by the tokenizer/parser with a location to help debugging.
