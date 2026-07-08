@@ -66,9 +66,15 @@ typedef enum { CLEAR, OCCUPIED, WARNING } Status;
 
 typedef enum { NEXT = 1, PREV = -1 } Direction;
 
+typedef enum {
+    SENSOR_CLEAR = 0,
+    SENSOR_OCCUPIED = 1,
+    SENSOR_WARNING = 2
+} SensorState;
+
 typedef struct Sensor {
     int hex_direction;
-    int actual_state; // TODO add enum for the state instead of a int
+    SensorState actual_state;
 } Sensor;
 
 typedef enum { STRAIGHT, SWITCH_TRACK } TrackType;
@@ -89,7 +95,7 @@ typedef struct Track {
     SwitchPosition pos;
     int branch; // -1 if not following
 
-    Sensor *sensors;
+    Sensor *sensors; // sensor owned by this track
 
 } Track;
 

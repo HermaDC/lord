@@ -11,8 +11,6 @@
 #include "config.h"
 #include "layout-parser.h"
 
-// TODO: use a define instead of hardcoding the -1 for "no track"
-
 #define TOKEN_FOR_FILE " ,;"
 
 int generate_id() {
@@ -68,8 +66,8 @@ void log_message(LogLevel level, const char *format, ...) {
 
 ErrorCode create_track(System *system, int id, Sensor *sensor, int next, int prev) {
     if(!system || !sensor) return ERR_INVALID_ARG;
-    if(next < -1 || next >= system->count) return ERR_INVALID_ARG;
-    if(prev < -1 || prev >= system->count) return ERR_INVALID_ARG;
+    if(next < NO_FOLLOWING_TRACK || next >= system->count) return ERR_INVALID_ARG;
+    if(prev < NO_FOLLOWING_TRACK || prev >= system->count) return ERR_INVALID_ARG;
 
     if((size_t) (system->count + 1) >= system->buffer) {
         system->buffer *= 2;
@@ -85,7 +83,7 @@ ErrorCode create_track(System *system, int id, Sensor *sensor, int next, int pre
                         .prev_index = prev,
                         .dir = NEXT,
                         .pos = NO_SWITCH,
-                        .branch = -1,
+                        .branch = NO_FOLLOWING_TRACK,
                         .sensors = sensor};
 
     system->array[system->count] = temp_track;
@@ -97,9 +95,9 @@ ErrorCode create_track(System *system, int id, Sensor *sensor, int next, int pre
 ErrorCode create_switch(System *system, int id, Sensor *sensor, int next, int prev,
                         int branch) {
     if(!system || !sensor) return ERR_INVALID_ARG;
-    if(next < -1 || next >= system->count) return ERR_INVALID_ARG;
-    if(prev < -1 || prev >= system->count) return ERR_INVALID_ARG;
-    if(branch < -1 || branch >= system->count) return ERR_INVALID_ARG;
+    if(next < NO_FOLLOWING_TRACK || next >= system->count) return ERR_INVALID_ARG;
+    if(prev < NO_FOLLOWING_TRACK || prev >= system->count) return ERR_INVALID_ARG;
+    if(branch < NO_FOLLOWING_TRACK || branch >= system->count) return ERR_INVALID_ARG;
 
     if((size_t) (system->count + 1) >= system->buffer) {
         system->buffer *= 2;
@@ -127,9 +125,9 @@ ErrorCode create_switch(System *system, int id, Sensor *sensor, int next, int pr
 ErrorCode insert_switch(System *system, int id, Sensor *sensor, int track_next,
                         int track_prev, int branch) {
     if(!system || !sensor) return ERR_INVALID_ARG;
-    if(track_next < -1 || track_next >= system->count) return ERR_INVALID_ARG;
-    if(track_prev < -1 || track_prev >= system->count) return ERR_INVALID_ARG;
-    if(branch < -1 || branch >= system->count) return ERR_INVALID_ARG;
+    if(track_next < NO_FOLLOWING_TRACK || track_next >= system->count) return ERR_INVALID_ARG;
+    if(track_prev < NO_FOLLOWING_TRACK || track_prev >= system->count) return ERR_INVALID_ARG;
+    if(branch < NO_FOLLOWING_TRACK || branch >= system->count) return ERR_INVALID_ARG;
 
     if(track_next == track_prev) return ERR_INVALID_ARG;
 
@@ -157,27 +155,30 @@ ErrorCode create_straight_line(System *system, int num_tracks, size_t *head_inde
         return ERR_OK;
     }
 
-    int current_index = -1;
-    int first_created_index = -1;
+    int current_index = NO_FOLLOWING_TRACK;
+    int first_created_index = NO_FOLLOWING_TRACK;
 
     for(int i = 1; i <= num_tracks; i++) {
         Sensor *sen = malloc(sizeof(Sensor));
         if(!sen) return ERR_NO_MEMORY;
-        sen->hex_direction = 0; // TODO: set a real direction
-        sen->actual_state = 0;  // TODO: set a real state
-        ErrorCode err = create_track(system, generate_id(), sen, -1, current_index);
+        sen->hex_direction = 0;
+        sen->actual_state = SENSOR_CLEAR;
+        ErrorCode err = create_track(system, generate_id(), sen, NO_FOLLOWING_TRACK,
+                                     current_index);
 
         if(err != ERR_OK) return ERR_GENERAL;
 
         int new_index = system->count - 1;
 
-        if(first_created_index == -1) { first_created_index = new_index; }
+        if(first_created_index == NO_FOLLOWING_TRACK) { first_created_index = new_index; }
 
-        if(current_index >= 0) { system->array[current_index].next_index = new_index; }
+        if(current_index >= NO_FOLLOWING_TRACK) {
+            system->array[current_index].next_index = new_index;
+        }
 
         current_index = new_index;
     }
-    if(first_created_index >= 0) {
+    if(first_created_index >= NO_FOLLOWING_TRACK) {
         if(head_index) *head_index = first_created_index;
     }
 
@@ -192,8 +193,8 @@ int get_last_track(System *system, int start_index) {
     if(start_index < 0 || start_index >= system->count) start_index = 0;
 
     int current = start_index;
-    while(current > -1 && current < system->count &&
-          system->array[current].next_index != -1) {
+    while(current > NO_FOLLOWING_TRACK && current < system->count &&
+          system->array[current].next_index != NO_FOLLOWING_TRACK) {
         current = system->array[current].next_index;
     }
     return current;
@@ -201,13 +202,13 @@ int get_last_track(System *system, int start_index) {
 
 int get_next_track(System *system, int start_index) {
 
-    if(!system) return -1;
+    if(!system) return NO_FOLLOWING_TRACK;
     Track track = system->array[start_index];
 
     /* Si es switch, mirar posición */
     if(track.type == SWITCH_TRACK) {
 
-        if(track.pos == DIVERGING_POS && track.branch > -1) {
+        if(track.pos == DIVERGING_POS && track.branch > NO_FOLLOWING_TRACK) {
             int branch_next = system->array[track.branch].next_index;
             return branch_next;
         }
@@ -317,9 +318,8 @@ int count_branch_tracks(System *system, int branch_index) {
 
 ErrorCode read_sensor_data(Sensor *sensor) {
     if(!sensor) return ERR_NULL_PTR; // Error: NULL sensor
-    // TODO: Implement the real data
     int data = rand() % 3;
-    sensor->actual_state = data; // Simulamos lectura de sensor (0, 1 o 2)
+    sensor->actual_state = (SensorState) data;
     log_message(LOG_DEBUG, "Read sensor data: %d", data);
     return ERR_OK;
 }
@@ -356,10 +356,10 @@ int update_track_status(System *system, int track_index) {
     }
 
     switch(sensor->actual_state) {
-    case 0:
+    case SENSOR_CLEAR:
         track->status = CLEAR;
         return 0;
-    case 1:
+    case SENSOR_OCCUPIED:
         track->status = OCCUPIED;
         if(prev_in_dir_track && prev_in_dir_track->status != OCCUPIED)
             // The previous track in travel direction should be WARNING
@@ -367,7 +367,7 @@ int update_track_status(System *system, int track_index) {
 
         return 1;
 
-    case 2:
+    case SENSOR_WARNING:
         track->status = WARNING;
         return 0;
 
@@ -485,7 +485,7 @@ int tokens_to_track(System *system, LayoutToken *tokens, size_t token_count) {
                 Sensor *sen = malloc(sizeof(Sensor));
                 if(!sen) return NO_FOLLOWING_TRACK;
                 sen->hex_direction = 0;
-                sen->actual_state = 0;
+                sen->actual_state = SENSOR_CLEAR;
 
                 ErrorCode err =
                     create_switch(system, generate_id(), sen, NO_FOLLOWING_TRACK,
