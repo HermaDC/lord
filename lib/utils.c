@@ -2,6 +2,7 @@
 
 #include <stdarg.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,6 +11,7 @@
 
 #include "config.h"
 #include "layout-parser.h"
+#include "types.h"
 
 #define TOKEN_FOR_FILE " ,;"
 
@@ -125,8 +127,10 @@ ErrorCode create_switch(System *system, int id, Sensor *sensor, int next, int pr
 ErrorCode insert_switch(System *system, int id, Sensor *sensor, int track_next,
                         int track_prev, int branch) {
     if(!system || !sensor) return ERR_INVALID_ARG;
-    if(track_next < NO_FOLLOWING_TRACK || track_next >= system->count) return ERR_INVALID_ARG;
-    if(track_prev < NO_FOLLOWING_TRACK || track_prev >= system->count) return ERR_INVALID_ARG;
+    if(track_next < NO_FOLLOWING_TRACK || track_next >= system->count)
+        return ERR_INVALID_ARG;
+    if(track_prev < NO_FOLLOWING_TRACK || track_prev >= system->count)
+        return ERR_INVALID_ARG;
     if(branch < NO_FOLLOWING_TRACK || branch >= system->count) return ERR_INVALID_ARG;
 
     if(track_next == track_prev) return ERR_INVALID_ARG;
@@ -163,8 +167,8 @@ ErrorCode create_straight_line(System *system, int num_tracks, size_t *head_inde
         if(!sen) return ERR_NO_MEMORY;
         sen->hex_direction = 0;
         sen->actual_state = SENSOR_CLEAR;
-        ErrorCode err = create_track(system, generate_id(), sen, NO_FOLLOWING_TRACK,
-                                     current_index);
+        ErrorCode err =
+            create_track(system, generate_id(), sen, NO_FOLLOWING_TRACK, current_index);
 
         if(err != ERR_OK) return ERR_GENERAL;
 
@@ -172,7 +176,7 @@ ErrorCode create_straight_line(System *system, int num_tracks, size_t *head_inde
 
         if(first_created_index == NO_FOLLOWING_TRACK) { first_created_index = new_index; }
 
-        if(current_index >= NO_FOLLOWING_TRACK) {
+        if(current_index > NO_FOLLOWING_TRACK) {
             system->array[current_index].next_index = new_index;
         }
 
@@ -201,18 +205,19 @@ int get_last_track(System *system, int start_index) {
 }
 
 int get_next_track(System *system, int start_index) {
+    if(!system || start_index < 0 || start_index >= system->count) {
+        return NO_FOLLOWING_TRACK;
+    }
 
-    if(!system) return NO_FOLLOWING_TRACK;
     Track track = system->array[start_index];
 
-    /* Si es switch, mirar posición */
     if(track.type == SWITCH_TRACK) {
-
         if(track.pos == DIVERGING_POS && track.branch > NO_FOLLOWING_TRACK) {
-            int branch_next = system->array[track.branch].next_index;
-            return branch_next;
+            return system->array[track.branch].next_index;
         }
     }
+
+    if(track.dir == PREV) { return track.prev_index; }
 
     return track.next_index;
 }
@@ -317,131 +322,120 @@ int count_branch_tracks(System *system, int branch_index) {
 }
 
 ErrorCode read_sensor_data(Sensor *sensor) {
-    if(!sensor) return ERR_NULL_PTR; // Error: NULL sensor
-    int data = rand() % 3;
-    sensor->actual_state = (SensorState) data;
-    log_message(LOG_DEBUG, "Read sensor data: %d", data);
+    if(!sensor) return ERR_NULL_PTR;
+
+    sensor->actual_state = (rand() % 2 == 0) ? SENSOR_CLEAR : SENSOR_OCCUPIED;
+    log_message(LOG_DEBUG, "Read sensor data: %d", sensor->actual_state);
     return ERR_OK;
 }
 
-// Updates the track status based on its sensor data
-// Returns -1 on error, 0 if CLEAR or WARNING, 1 if OCCUPIED
+// Updates the track status based on its sensor data.
+// A track becomes WARNING only when its own sensor is clear and the next track in
+// the current travel direction is occupied.
 int update_track_status(System *system, int track_index) {
     if(!system || track_index < 0 || track_index >= system->count) return -1;
-    Track *track = &system->array[track_index];
 
+    Track *track = &system->array[track_index];
     Sensor *sensor = track->sensors;
     if(!sensor) return -1;
 
-    ErrorCode sensor_state = read_sensor_data(sensor);
-
-    /* Determine the logical "previous" track according to travel direction.
-       If direction is NEXT, the previous track is `prev`.
-       If direction is PREV, the previous track is `next` (opposite links).
-    */
-    int prev_in_dir_index = (track->dir == NEXT) ? track->prev_index : track->next_index;
-    Track *prev_in_dir_track = NULL;
-    if(prev_in_dir_index >= 0 && prev_in_dir_index < system->count)
-        prev_in_dir_track = &system->array[prev_in_dir_index];
-
-    if(sensor_state != ERR_OK) { // Error in the sensor
-        // If the sensor fails, consider the track occupied to avoid collisions
+    if(read_sensor_data(sensor) != ERR_OK) {
         track->status = OCCUPIED;
-
-        if(prev_in_dir_track && prev_in_dir_track->status != OCCUPIED)
-            // The previous track in travel direction should be WARNING
-            prev_in_dir_track->status = WARNING;
-
         return -1;
+    }
+
+    int next_in_dir_index = get_next_track(system, track_index);
+    Track *next_in_dir_track = NULL;
+    if(next_in_dir_index >= 0 && next_in_dir_index < system->count) {
+        next_in_dir_track = &system->array[next_in_dir_index];
     }
 
     switch(sensor->actual_state) {
     case SENSOR_CLEAR:
-        track->status = CLEAR;
+        if(next_in_dir_track && next_in_dir_track->status == OCCUPIED) {
+            track->status = WARNING;
+        } else {
+            track->status = CLEAR;
+        }
         return 0;
+
     case SENSOR_OCCUPIED:
         track->status = OCCUPIED;
-        if(prev_in_dir_track && prev_in_dir_track->status != OCCUPIED)
-            // The previous track in travel direction should be WARNING
-            prev_in_dir_track->status = WARNING;
-
         return 1;
-
-    case SENSOR_WARNING:
-        track->status = WARNING;
-        return 0;
 
     default:
         track->status = OCCUPIED;
-
-        if(prev_in_dir_track && prev_in_dir_track->status != OCCUPIED)
-            prev_in_dir_track->status = WARNING;
-
         log_message(
             LOG_WARNING,
             "Unknown sensor state %d for track index %d, setting status to OCCUPIED",
             sensor->actual_state, track_index);
-        return -1; // Unknown state
+        return -1;
     }
-    // log_message(LOG_DEBUG, "Updated track index %d to status %d based on sensor state
-    // %d", track_index, track->status, sensor->actual_state);
 }
 
-// forces the status without reading the sensor
-// NOT CHECKED, use with care
-// TODO if red warning previous
+// Forces the status without reading the sensor.
 ErrorCode force_update_track_status(System *system, int track_index, Status new_status) {
-    if(!system || track_index < 0 || track_index >= system->count) return -1;
-    Track *track = &system->array[track_index];
-    Sensor *sensor = track->sensors;
+    if(!system || track_index < 0 || track_index >= system->count)
+        return ERR_OUT_OF_BOUNDS;
 
-    /* Determine the logical "previous" track according to travel direction.
-       If direction is NEXT, the previous track is `prev`.
-       If direction is PREV, the previous track is `next` (opposite links).
-    */
-    int prev_in_dir_index = (track->dir == NEXT) ? track->prev_index : track->next_index;
-    Track *prev_in_dir_track = NULL;
-    if(prev_in_dir_index >= 0 && prev_in_dir_index < system->count) {
-        prev_in_dir_track = &system->array[prev_in_dir_index];
+    Track *track = &system->array[track_index];
+
+    int next_in_dir_index = get_next_track(system, track_index);
+    Track *next_in_dir_track = NULL;
+    if(next_in_dir_index >= 0 && next_in_dir_index < system->count) {
+        next_in_dir_track = &system->array[next_in_dir_index];
     }
 
     switch(new_status) {
     case CLEAR:
-        track->status = CLEAR;
-        return 0;
+        if(next_in_dir_track && next_in_dir_track->status == OCCUPIED) {
+            track->status = WARNING;
+        } else {
+            track->status = CLEAR;
+        }
+        return ERR_OK;
+
     case OCCUPIED:
         track->status = OCCUPIED;
-        if(prev_in_dir_track && prev_in_dir_track->status != OCCUPIED)
-            // The previous track in travel direction should be WARNING
-            prev_in_dir_track->status = WARNING;
-
-        return 1;
+        return ERR_OK;
 
     case WARNING:
         track->status = WARNING;
-        return 0;
+        return ERR_OK;
 
     default:
         track->status = OCCUPIED;
-
-        if(prev_in_dir_track && prev_in_dir_track->status != OCCUPIED)
-            prev_in_dir_track->status = WARNING;
-
-        log_message(
-            LOG_WARNING,
-            "Unknown sensor state %d for track index %d, setting status to OCCUPIED",
-            sensor->actual_state, track_index);
-        return -1; // Unknown state
+        return ERR_INVALID_ARG;
     }
-    log_message(LOG_INFO, "Forced update of track index %d to status %d", track_index,
-                new_status);
 }
 
 void update_system_status(System *system, int index) {
-    if(!system || index < 0) return;
-    for(int current = 0; current < system->count; current++) {
-        update_track_status(system, current);
+    if(!system || system->count <= 0) return;
+
+    bool *visited = calloc(system->count, sizeof(*visited));
+    if(!visited) return;
+
+    int current = (index >= 0 && index < system->count) ? index : 0;
+    while(current >= 0 && current < system->count) {
+        if(!visited[current]) {
+            update_track_status(system, current);
+            visited[current] = true;
+        }
+
+        int next = get_next_track(system, current);
+        if(next == NO_FOLLOWING_TRACK || next == current || visited[next]) { break; }
+
+        current = next;
     }
+
+    for(int i = 0; i < system->count; i++) {
+        if(!visited[i]) {
+            update_track_status(system, i);
+            visited[i] = true;
+        }
+    }
+
+    free(visited);
 }
 
 // Returns the index of the first track

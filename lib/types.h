@@ -68,8 +68,7 @@ typedef enum { NEXT = 1, PREV = -1 } Direction;
 
 typedef enum {
     SENSOR_CLEAR = 0,
-    SENSOR_OCCUPIED = 1,
-    SENSOR_WARNING = 2
+    SENSOR_OCCUPIED = 1
 } SensorState;
 
 typedef struct Sensor {
