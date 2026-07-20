@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <time.h>
 
 #include "config.h"
@@ -14,6 +15,20 @@
 #include "types.h"
 
 #define TOKEN_FOR_FILE " ,;"
+
+#define TRACK_JSON_FMT                                                                   \
+    "\"id\": %d, \"direction\": \"%s\", \"status\": \"%s\", "                            \
+    "\"next\": %d, \"prev\": %d, \"sensor\": %#X"
+
+#define TRACK_JSON_FMT_SWITCH TRACK_JSON_FMT ", \"position\": \"%s\", \"branch\": %d"
+
+#define TRACK_JSON_ARGS(t)                                                               \
+    (t)->id, (t)->dir == NEXT ? "NEXT" : "PREVIOUS", status_to_str((t)->status),         \
+        (t)->next_index, (t)->prev_index, (t)->sensors->hex_direction
+
+#define TRACK_JSON_FMT_SWITCH_ARGS(t)                                                    \
+    TRACK_JSON_ARGS(t), (t)->pos == STRAIGHT_POS ? "STRAIGHT_POS" : "DIVERGING_POS",     \
+        (t)->branch
 
 int generate_id() {
     static int global_id_counter = 0;
@@ -205,49 +220,57 @@ int get_last_track(System *system, int start_index) {
 }
 
 int get_next_track(System *system, int start_index) {
-    if(!system || start_index < 0 || start_index >= system->count) {
-        return NO_FOLLOWING_TRACK;
-    }
 
+    if(!system) return NO_FOLLOWING_TRACK;
     Track track = system->array[start_index];
 
+    /* Si es switch, mirar posición */
     if(track.type == SWITCH_TRACK) {
+
         if(track.pos == DIVERGING_POS && track.branch > NO_FOLLOWING_TRACK) {
-            return system->array[track.branch].next_index;
+            int branch_next = system->array[track.branch].next_index;
+            return branch_next;
         }
     }
-
-    if(track.dir == PREV) { return track.prev_index; }
 
     return track.next_index;
 }
 
-void print_tracks_with_switches(System *system, int index) {
-    if(!system) {
-        printf("NULL pointer passed\n");
-        return;
-    }
-    int current = index;
-    while(current > -1 && current < system->count) {
-        Track current_track = system->array[current];
+// Recursive printer for a chain starting at `start` following next pointers
+// and printing branch contents in braces.
+static void print_chain(System *system, int start, bool *visited) {
+    int current = start;
+    while(current > -1 && current < system->count && !visited[current]) {
+        visited[current] = true;
+        Track *t = &system->array[current];
 
-        if(current_track.type == SWITCH_TRACK) {
-
-            if(current_track.pos == STRAIGHT_POS)
-                printf("(%d)SW[→]", current_track.id);
+        if(t->type == SWITCH_TRACK) {
+            if(t->pos == STRAIGHT_POS)
+                printf("(%d)SW[→]", t->id);
             else
-                printf("(%d)SW[~]", current_track.id);
+                printf("(%d)SW[~]", t->id);
 
-            // También podemos imprimir la rama recursivamente
-            if(current_track.branch) {
+            // print branch recursively if exists
+            if(t->branch > NO_FOLLOWING_TRACK) {
                 printf("{");
-                print_tracks_with_switches(system, current_track.branch);
-                printf("} ");
+                print_chain(system, t->branch, visited);
+                printf("}");
+            }
+
+            // indicate connection or stop for switch
+            int next_in_dir = (t->dir == NEXT) ? t->next_index : t->prev_index;
+            if(next_in_dir > NO_FOLLOWING_TRACK) {
+                if(t->dir == NEXT)
+                    printf(" " GREEN "------ " RESET "→ ");
+                else
+                    printf(" ← " GREEN "------ " RESET " ");
+            } else {
+                printf(" | ");
             }
         } else {
-            // Track normal
-            printf("(%d)", current_track.id);
-            switch(current_track.status) {
+            // Straight track
+            printf("(%d)", t->id);
+            switch(t->status) {
             case CLEAR:
                 printf(GREEN "------ " RESET);
                 break;
@@ -258,12 +281,51 @@ void print_tracks_with_switches(System *system, int index) {
                 printf(YELLOW "------ " RESET);
                 break;
             }
+
+            int next_in_dir = (t->dir == NEXT) ? t->next_index : t->prev_index;
+            if(next_in_dir > NO_FOLLOWING_TRACK) {
+                if(t->dir == NEXT)
+                    printf("→ ");
+                else
+                    printf("← ");
+            } else {
+                printf("| ");
+            }
         }
 
+        // move to the next track following travel direction (handles switches)
         current = get_next_track(system, current);
     }
+}
 
-    // printf("\n");
+void print_tracks_with_switches(System *system, int index) {
+    if(!system) {
+        printf("NULL pointer passed\n");
+        return;
+    }
+    // Track visitation map to avoid duplicate prints
+    bool *visited = calloc(system->count, sizeof(bool));
+    if(!visited) {
+        printf("Memory allocation failed\n");
+        return;
+    }
+
+    // Start printing from requested index if valid, otherwise from 0
+    if(index >= 0 && index < system->count) {
+        print_chain(system, index, visited);
+        printf("\n");
+    }
+
+    // Ensure all tracks are printed: any unvisited tracks are printed as separate
+    // chains so the whole system is displayed.
+    for(int i = 0; i < system->count; i++) {
+        if(!visited[i]) {
+            print_chain(system, i, visited);
+            printf("\n");
+        }
+    }
+
+    free(visited);
 }
 
 bool is_in_chain(System *system, int origin, int dest, ErrorCode *exit_err) {
@@ -344,7 +406,7 @@ int update_track_status(System *system, int track_index) {
         return -1;
     }
 
-    int next_in_dir_index = get_next_track(system, track_index);
+    int next_in_dir_index = (track->dir == NEXT) ? track->next_index : track->prev_index;
     Track *next_in_dir_track = NULL;
     if(next_in_dir_index >= 0 && next_in_dir_index < system->count) {
         next_in_dir_track = &system->array[next_in_dir_index];
@@ -380,7 +442,7 @@ ErrorCode force_update_track_status(System *system, int track_index, Status new_
 
     Track *track = &system->array[track_index];
 
-    int next_in_dir_index = get_next_track(system, track_index);
+    int next_in_dir_index = (track->dir == NEXT) ? track->next_index : track->prev_index;
     Track *next_in_dir_track = NULL;
     if(next_in_dir_index >= 0 && next_in_dir_index < system->count) {
         next_in_dir_track = &system->array[next_in_dir_index];
@@ -410,9 +472,8 @@ ErrorCode force_update_track_status(System *system, int track_index, Status new_
 }
 
 void update_system_status(System *system, int index) {
-    if(!system || system->count <= 0) return;
-
-    bool *visited = calloc(system->count, sizeof(*visited));
+    if(!system || index < 0) return;
+    bool *visited = calloc(system->count, sizeof(bool));
     if(!visited) return;
 
     int current = (index >= 0 && index < system->count) ? index : 0;
@@ -434,8 +495,6 @@ void update_system_status(System *system, int index) {
             visited[i] = true;
         }
     }
-
-    free(visited);
 }
 
 // Returns the index of the first track
@@ -738,5 +797,46 @@ ErrorCode save_system_to_file(System *system, const char *path) {
     fprintf(f, "\n");
     fclose(f);
     log_message(LOG_INFO, "Saved system layout to file: %s", path);
+    return ERR_OK;
+}
+
+// Returns a malloc string
+char *track_to_json_object(Track *track) {
+    if(track->type == SWITCH_TRACK) {
+        size_t len = snprintf(NULL, 0, "{ " TRACK_JSON_FMT_SWITCH " }",
+                              TRACK_JSON_FMT_SWITCH_ARGS(track));
+
+        char *str = malloc(len + 1);
+        snprintf(str, len + 1, "{ " TRACK_JSON_FMT_SWITCH " }",
+                 TRACK_JSON_FMT_SWITCH_ARGS(track));
+        return str;
+
+    } else {
+        size_t len = snprintf(NULL, 0, "{ " TRACK_JSON_FMT " }", TRACK_JSON_ARGS(track));
+
+        char *str = malloc(len + 1);
+        snprintf(str, len + 1, "{ " TRACK_JSON_FMT " }", TRACK_JSON_ARGS(track));
+        return str;
+    }
+    return NULL;
+}
+
+ErrorCode save_system_to_json(System *system, const char *path) {
+    if(!system || !path) return ERR_INVALID_ARG;
+
+    FILE *f = fopen(path, "w");
+    if(!f) return ERR_GENERAL;
+
+    fprintf(f, "[\n");
+    for(size_t i = 0; i < (size_t) system->count; i++) {
+        Track *t = &system->array[i];
+        char *str = track_to_json_object(t);
+        fprintf(f, "  %s", str);
+        free(str);
+        if((i + 1) < (size_t) system->count) { fprintf(f, ","); }
+        fprintf(f, "\n");
+    }
+    fprintf(f, "]");
+
     return ERR_OK;
 }
