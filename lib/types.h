@@ -66,10 +66,19 @@ typedef enum { CLEAR, OCCUPIED, WARNING } Status;
 
 typedef enum { NEXT = 1, PREV = -1 } Direction;
 
-typedef enum {
-    SENSOR_CLEAR = 0,
-    SENSOR_OCCUPIED = 1
-} SensorState;
+typedef enum { SENSOR_CLEAR = 0, SENSOR_OCCUPIED = 1 } SensorState;
+
+static inline const char *status_to_str(Status s) {
+    switch(s) {
+    case CLEAR:
+        return "CLEAR";
+    case OCCUPIED:
+        return "OCCUPIED";
+    case WARNING:
+        return "WARNING";
+    }
+    return "UNKNOWN";
+}
 
 typedef struct Sensor {
     int hex_direction;
