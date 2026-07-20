@@ -45,7 +45,7 @@ System *load_system_layout_from_file(const char *path, size_t *count);
 ErrorCode save_system_to_file(System *system, const char *path);
 
 // Returns an str with the representacion of the track as a JSON object
-char *track_to_json_object(System *system, const char *path);
+char *track_to_json_object(Track *track);
 
 // Transform the loaded systems into a json file
 ErrorCode save_system_to_json(System *system, const char *path);
