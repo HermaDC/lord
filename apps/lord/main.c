@@ -9,7 +9,9 @@
 #include "lib/cli.h"
 #include "lib/config.h"
 #include "lib/interactive/interactive.h"
+#include "lib/interactive/vm/eval.h"
 #include "lib/layout-parser.h"
+#include "lib/socket.h"
 #include "lib/types.h"
 #include "lib/utils.h"
 
@@ -24,19 +26,21 @@ AppContext app_context = {.count = 0, .systems = NULL};
 
 struct Config global_config = {.MAX_STACK_AMOUNT = MAX_STACK_SIZE, .VERBOSE = false};
 
-void cleanup(AppContext context) {
-    if(!context.systems) return;
-    for(size_t i = 0; i < context.count; i++) {
-        free_system(&context.systems[i]);
+void cleanup(void) {
+    if(!app_context.systems) return;
+    for(size_t i = 0; i < app_context.count; i++) {
+        free_system(&app_context.systems[i]);
     }
-    free(context.systems);
-    context.systems = NULL;
-    context.count = 0;
+    free(app_context.systems);
+    app_context.systems = NULL;
+    app_context.count = 0;
+    return;
 }
 
 /* ---------- MAIN ---------- */
 
 int main(int argc, char *argv[]) {
+    atexit(cleanup);
     srand(SEED);
     CLIOptions opts = parse_args(argc, argv);
     int exit_code = 0; // Use it for storing the program exit code
@@ -69,7 +73,9 @@ int main(int argc, char *argv[]) {
 
     if(opts.command) {
         printf("Running: %s\n", opts.command);
-        int err = run_command_line(opts.command);
+        VM vm = make_VM();
+        int err = run_command_line(&vm, opts.command);
+        destroy_VM(&vm);
 
         exit_code = err;
         goto on_exit;
@@ -86,23 +92,35 @@ int main(int argc, char *argv[]) {
     }
 
     if(opts.update_time) {
-        if(opts.interactive) {
-            fprintf(stderr, "Update time set and interactive too\nAborting...");
-            return 1;
-        }
+
+        IPCServer server = {0};
+        int server_fd = init_socket("/tmp/lord.sock");
+        if(server_fd < 0) return 10;
+        server.server_fd = server_fd;
         while(1) {
-            if(opts.update_time) {
+            if(opts.interactive) {
                 fprintf(stderr, "Update time set and interactive too\n aborting...");
                 return 3;
             }
-
+            ipc_poll(&server);
             for(size_t i = 0; i < app_context.count; i++) {
                 update_system_status(&app_context.systems[i], 0);
+                for(size_t i = 0; i < server.client_count; i++) {
+                    send_message(server.clients[i].fd, MSG_EVENT,
+                                 "Chanvales, se ha actualizado\n");
+                }
             }
+
             msleep(opts.update_time);
         }
     }
     if(opts.save) {
+        save_system_to_json(&app_context.systems[0], "prueba.json");
+        return 0;
+    }
+    /*
+    if(opts.save) {
+#warning "feature not implemented, may not use"
         for(size_t i = 0; i < app_context.count; i++) {
             char filename[256];
             snprintf(filename, sizeof(filename), "system_%zu.txt", i);
@@ -114,7 +132,7 @@ int main(int argc, char *argv[]) {
                 goto on_exit;
             }
         }
-    }
+    }*/
     if(opts.script) {
         FILE *script_file = fopen(opts.script, "r");
         if(!script_file) {
@@ -129,10 +147,8 @@ int main(int argc, char *argv[]) {
         goto on_exit;
     }
     // TODO use directyly goto on_exit, as it is the last instruction of the function
-    cleanup(app_context);
     return exit_code;
 
 on_exit:
-    cleanup(app_context);
     return exit_code;
 }
