@@ -1,4 +1,4 @@
-#include "types.h"
+#include "core/types.h"
 
 // generates the log mensages in LOG_PATH, the format is [LEVEL] message
 void log_message(LogLevel level, const char *format, ...);

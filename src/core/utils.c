@@ -10,9 +10,9 @@
 #include <strings.h>
 #include <time.h>
 
-#include "config.h"
-#include "layout-parser.h"
-#include "types.h"
+#include "common/config.h"
+#include "core/layout-parser.h"
+#include "core/types.h"
 
 #define TOKEN_FOR_FILE " ,;"
 

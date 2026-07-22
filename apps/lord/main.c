@@ -6,14 +6,12 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "lib/cli.h"
-#include "lib/config.h"
-#include "lib/interactive/interactive.h"
-#include "lib/interactive/vm/eval.h"
-#include "lib/layout-parser.h"
-#include "lib/socket.h"
-#include "lib/types.h"
-#include "lib/utils.h"
+#include "cli/cli.h"
+#include "common/config.h"
+#include "core/layout-parser.h"
+#include "runtime/socket.h"
+#include "core/types.h"
+#include "core/utils.h"
 
 void msleep(int ms) {
     struct timespec ts;

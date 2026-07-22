@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#include "config.h"
+#include "common/config.h"
 
 const char *error_to_string(ErrorCode err) {
     switch(err) {

@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-#include "config.h"
+#include "common/config.h"
 
 #define NO_FOLLOWING_TRACK -1
 

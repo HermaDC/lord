@@ -6,8 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "config.h"
-#include "types.h"
+#include "common/config.h"
+#include "core/types.h"
 
 #define IS_TOK_DELIMITER(c) (isspace(c) || c == ',' || c == ';')
 
